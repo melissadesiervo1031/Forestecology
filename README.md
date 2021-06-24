@@ -1,0 +1,5 @@
+# Forestecology
+Projects about vegetation change in NW United States
+
+##Sawyer Thornburgh###
+These files are the raw data used in the manuscript "Weak climate responses result from fire exclusion in the diverse conifer assemblages of California’s Klamath Mountains"
