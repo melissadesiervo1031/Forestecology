@@ -4,44 +4,49 @@ library(reshape2)
 library(ggplot2)
 library(here)
 
-
-
 ##upload Klamath tree data ##
 trees<- read.csv(here("fulltreedata.csv"), header=T, check.names=FALSE) 
 
 
+##Mortality analyses done for three species: ABMA, PINCON, ABLAS###
 
+ABMAonly<-subset(trees, Species == "ABMA")
 
+str(ABMAonly)
 
-##doesmortalityvarybysizespecies##
-data.frame(elevenspecies)
-attach(elevenspecies)
+##first scale all the quantitative variables###
 
-list(elevenspecies$Status4)
-as.factor(elevenspecies$Status4)
-
-
-
-##treelevelanalysis##
-elevenspecies <- drop_read_csv("/Red fir paper/Rfiles/elevenspecies_12_9_15.csv")
-ABMAonly<-subset(elevenspecies, Species == "ABMA")
-
-#confounding effects
-tmp<-melt(ABMAonly[,c("Status4","BB","Mtoe","DMR2","DBH","Elevation","TRMI","BAABMA","BAother","Change5yrtempmin","Change5yrGstempmax")],
-          id.vars="Status4")
-ggplot(tmp,aes(factor(Status4),y=value,fill=factor(Status4)))+
-  geom_boxplot()+
-  facet_wrap(~variable,scales="free_y")+theme_classic()
-
-# calculate the vif of all quantitative covariates
+##scaleallvariables##
 ABMAonly$DBH<-scale(ABMAonly$DBH)
 ABMAonly$Elevation<-scale(ABMAonly$Elevation)
 ABMAonly$TRMI<-scale(ABMAonly$TRMI)
 ABMAonly$BAABMA<-scale(ABMAonly$BAABMA)
-ABMAonly$BAother<-scale(ABMAonly$BAother)
+ABMAonly$BAotherABMA<-scale(ABMAonly$BAotherABMA)
+ABMAonly$QMDABMA<-scale(ABMAonly$QMDABMA)
 ABMAonly$Change5yrtempmin<-scale(ABMAonly$Change5yrtempmin)
 ABMAonly$Change5yrGstempmax<-scale(ABMAonly$Change5yrGstempmax)
+ABMAonly$Change10yrtempmin<-scale(ABMAonly$Change10yrtempmin)
+ABMAonly$Change10yrGstempmax<-scale(ABMAonly$Change10yrGstempmax)
+ABMAonly$'5yrSpringsnowpack'<-scale(ABMAonly$'5yrSpringsnowpack')
+ABMAonly$'5yrtempmin'<-scale(ABMAonly$'5yrtempmin')
+ABMAonly$'5yrppt'<-scale(ABMAonly$'5yrppt')
+ABMAonly$'5yrGstempmax'<-scale(ABMAonly$'5yrGstempmax')
+ABMAonly$'5yrGSCWD'<-scale(ABMAonly$'5yrGSCWD')
+ABMAonly$'5yrtotalCWD'<-scale(ABMAonly$'5yrtotalCWD')
 
+#quick way to visualize how all covariates in the model will vary by live and dead trees## 
+
+tmp<-melt(ABMAonly[,c("Status4","BB","Mtoe","DMR2","DBH","Elevation","TRMI","BAABMA","BAotherABMA","Change5yrtempmin","Change5yrGstempmax")],
+          id.vars="Status4")
+
+ggplot(tmp,aes(factor(Status4),y=value,fill=factor(Status4)))+
+  geom_boxplot()+
+  facet_wrap(~variable,scales="free_y")+theme_classic()
+
+
+##BEFORE CREATING MODEL, WE WANT TO LOOK AT VARIANCE INFLATION FACTOR OF VARIABLES###
+
+###FUNCTIONS FOR VIF CORRELATIONS#####
 
 #corvif#
 ##VIF FUNCTION.
@@ -102,10 +107,24 @@ myvif <- function(mod) {
 #END VIF FUNCTIONS
 
 
-ppnew<-ABMAonly[,c("DBH","Elevation","TRMI","BAABMA","BAother",
+# calculate the vif of all quantitative covariates
+ABMAonly$DBH<-scale(ABMAonly$DBH)
+ABMAonly$Elevation<-scale(ABMAonly$Elevation)
+ABMAonly$TRMI<-scale(ABMAonly$TRMI)
+ABMAonly$BAABMA<-scale(ABMAonly$BAABMA)
+ABMAonly$BAotherABMA<-scale(ABMAonly$BAotherABMA)
+ABMAonly$Change5yrtempmin<-scale(ABMAonly$Change5yrtempmin)
+ABMAonly$Change5yrGstempmax<-scale(ABMAonly$Change5yrGstempmax)
+
+
+ppnew<-ABMAonly[,c("DBH","Elevation","TRMI","BAABMA","BAotherABMA",
                    "Change5yrtempmin","Change5yrGstempmax")]
 ppnew<-as.data.frame(ppnew)
 corvif(ppnew)
+
+####Nothing too troubling about the VIF of covariates##
+
+##MAKING THE MODELS###
 
 
 # models
