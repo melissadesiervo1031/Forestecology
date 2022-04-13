@@ -16,6 +16,7 @@ library(betapart)
 library(weights)
 library(stringr)
 library(viridis)
+library(SciViews)
 
 
 
@@ -39,9 +40,11 @@ tree_long2<-tree_long %>% mutate(PLOTYEAR= paste0(Plot, Year))%>% mutate(SPECIES
 
 tree_long3<-tree_long2 %>% mutate(OTV = 1.415*log(Cover) + 2)
 
-hist(tree_long3$Class)
-hist(tree_long3$Cover)
-hist(tree_long3$OTV)
+###another column with transformed back to % from OTV##
+
+
+tree_long4<-tree_long3 %>% mutate(logcover = (OTV-2)/1.415) %>% mutate(coverOTV=exp(logcover))
+
 
 ####Site X Species matrix with Cover###
 
@@ -122,7 +125,7 @@ all_datOTV<-merge(tree.wideOTV, env_imp, by="PLOTYEAR")
 
 ```
 
-```{r sum up layers for total cover COVER, echo=FALSE}
+```{r sum up layers for total cover and total OTV, echo=FALSE}
 
 ########sum strata by species
 ##abco
@@ -154,7 +157,7 @@ tree.wideCover$TSME<-tree.wideCover$TSMERCAN+tree.wideCover$TSMERSAP+tree.wideCo
 
 totalcover<-tree.wideCover %>% select(PLOTYEAR, ABCO:TSME)
 
-totalcover_2<-separate(data = totalcover, col = PLOTYEAR, into = c("PLOT", "YEAR"), sep=3)
+totalcover_2<-separate(data = totalcover, col = PLOTYEAR, into = c("PLOT", "YEAR"), sep=3, remove=FALSE)
 
 totalcover_long <- gather(totalcover_2, SPECIES, TotalCover, ABCO:TSME, factor_key=TRUE)
 
@@ -162,56 +165,154 @@ totalcover_long <- gather(totalcover_2, SPECIES, TotalCover, ABCO:TSME, factor_k
 avgcovertotal<-totalcover_long %>% group_by(YEAR, SPECIES) %>% dplyr::summarise(meancover=mean(TotalCover, na.rm=TRUE),sdcover=sd(TotalCover, na.rm=TRUE),secover=sd(TotalCover, na.rm=TRUE)/sqrt(n()))
 
 
-
-```
-
-
-```{r sum up layers for total cover OTV, echo=FALSE}
-
-########sum strata by species
-##abco
-tree.wideOTV$ABCO<-tree.wideOTV$ABCOCAN +tree.wideOTV$ABCOSAP+tree.wideOTV$ABCOSEED
-##ablas
-tree.wideOTV$ABLAS<-tree.wideOTV$ABLASCAN +tree.wideOTV$ABLASSAP+tree.wideOTV$ABLASSEED
-##abma
-tree.wideOTV$ABMA<-tree.wideOTV$ABMACAN+tree.wideOTV$ABMASAP+tree.wideOTV$ABMASEED
-##cade
-tree.wideOTV$CADE<-tree.wideOTV$CADECAN+tree.wideOTV$CADESAP+tree.wideOTV$CADESEED
-##picbre
-tree.wideOTV$PIBR<-tree.wideOTV$PICBRECAN+tree.wideOTV$PICBRESAP+tree.wideOTV$PICBRESEED
-##piceng
-tree.wideOTV$PIEN<-tree.wideOTV$PICENGCAN+tree.wideOTV$PICENGSAP+tree.wideOTV$PICENGSEED
-##pincon
-tree.wideOTV$PICO<-tree.wideOTV$PINCONCAN+tree.wideOTV$PINCONSAP+tree.wideOTV$PINCONSEED
-##pinlam
-tree.wideOTV$PILA<-tree.wideOTV$PINLAMCAN+tree.wideOTV$PINLAMSAP+tree.wideOTV$PINLAMSEED
-##pinmon
-tree.wideOTV$PIMO<-tree.wideOTV$PINMONCAN+tree.wideOTV$PINMONSAP+tree.wideOTV$PINMONSEED
-##pinpon
-tree.wideOTV$PIPO<-tree.wideOTV$PINPONCAN+tree.wideOTV$PINPONSAP+tree.wideOTV$PINPONSEED
-##psme
-tree.wideOTV$PSME<-tree.wideOTV$PSMECAN+tree.wideOTV$PSMESAP+tree.wideOTV$PSMESEED
-##tsme
-tree.wideOTV$TSME<-tree.wideOTV$TSMERCAN+tree.wideOTV$TSMERSAP+tree.wideOTV$TSMERSEED
+##converting total cover into OTV###
 
 
-totalOTV<-tree.wideOTV %>% select(PLOTYEAR, ABCO:TSME)
+totalcover_longOTV<-totalcover_long %>% mutate(TotalOTV = 1.415*log(TotalCover) + 2)
 
-totalOTV_2<-separate(data = totalOTV, col = PLOTYEAR, into = c("PLOT", "YEAR"), sep=3)
-
-totalOTV_long <- gather(totalOTV_2, SPECIES, TotalOTV, ABCO:TSME, factor_key=TRUE)
-
-totalOTV_long2<-as.data.frame(lapply(totalOTV_long, function(x) ifelse(is.infinite(x), 0, x)))
+totalcover_longOTV$TotalOTV[!is.finite(totalcover_longOTV$TotalOTV)] <- 0  ##make infint values 0##
 
 
 
-avgOTVtotal<-totalOTV_long%>% group_by(YEAR, SPECIES) %>% dplyr::summarise(meanOTV=mean(TotalOTV, na.rm=TRUE),sdOTV=sd(TotalOTV, na.rm=TRUE),seOTV=sd(TotalOTV, na.rm=TRUE)/sqrt(n()))
 
 
 ```
 
 
-```{r not yet working... weighted t tests elevation by layer}
+```{r weighted mean elevations total cover}
+
+###merge env and sp data cover
+totalcover_long3<-merge(totalcover_long, env_imp, by="PLOTYEAR")
+
+
+totalcover_1969<-subset(totalcover_long3, YEAR==1969)
+totalcover_2015<-subset(totalcover_long3, YEAR==2015)
+
+
+# split the dataframe by species##
+
+total_dist_dat_split1969Cover<-split.data.frame(x = totalcover_1969,f = totalcover_1969$SPECIES)
+total_dist_dat_split2015Cover<-split.data.frame(x = totalcover_2015,f =totalcover_2015$SPECIES)
+
+
+
+### weighted elevation averages###
+weightedmean1969COVER<-stack(lapply(X = total_dist_dat_split1969Cover,function(t){
+  means1969<-weighted.mean(t$ELEV, t$TotalCover)
+  return(means1969)
+}
+))
+ 
+weightedmean2015COVER<-stack(lapply(X = dist_dat_split2015Cover,function(t){
+  means2015<-weighted.mean(t$ELEV, t$TotalCover)
+  return(means2015)
+}
+))
+
+
+#####OTV########
+
+totalcover_longOTV3<-merge(totalcover_longOTV, env_imp, by="PLOTYEAR")
+
+
+totalcoverOTV_1969<-subset(totalcover_longOTV3, YEAR==1969)
+totalcoverOTV_2015<-subset(totalcover_longOTV3, YEAR==2015)
+
+
+# split the dataframe by species##
+
+total_dist_dat_split1969OTV<-split.data.frame(x = totalcoverOTV_1969,f = totalcover_1969$SPECIES)
+total_dist_dat_split2015OTV<-split.data.frame(x = totalcoverOTV_2015,f =totalcover_2015$SPECIES)
+
+
+
+### weighted elevation averages###
+weightedmean1969OTV<-stack(lapply(X = total_dist_dat_split1969OTV,function(t){
+  means1969<-weighted.mean(t$ELEV, t$TotalOTV)
+  return(means1969)
+}
+))
+ 
+weightedmean2015OTV<-stack(lapply(X = total_dist_dat_split2015OTV,function(t){
+  means2015<-weighted.mean(t$ELEV, t$TotalOTV)
+  return(means2015)
+}
+))
+
+weightedmeans<-as.data.frame(cbind(species=as.factor(as.character(weightedmean1969OTV$ind,2)), elev1969=round(weightedmean1969OTV$values,2), elev2015=round(weightedmean2015OTV$values)))
+
+weightedmeans2<-weightedmeans %>% mutate(elevdiff=elev2015-elev1969) %>% mutate(elevdiffdecade=elevdiff/(2015-1969)*10)
+
+###these results are first few columns in Table 2####
+
+
+
+
+
+```
+
+
+
+```{r weighted mean t tests total cover}
+
+###merge env and sp data cover
+totalcover_long3<-merge(totalcover_long, env_imp, by="PLOTYEAR")
+
+
+totalcover_1969<-subset(totalcover_long3, YEAR==1969)
+totalcover_2015<-subset(totalcover_long3, YEAR==2015)
+
+
+# split the dataframe by species##
+
+total_dist_dat_split1969Cover<-split.data.frame(x = totalcover_1969,f = totalcover_1969$SPECIES)
+total_dist_dat_split2015Cover<-split.data.frame(x = totalcover_2015,f =totalcover_2015$SPECIES)
+
+
+## weighted t test for elevation#####
+
+
+###doing it manually works....##
+
+
+wtd.t.test(total_dist_dat_split1969Cover[[1]]$ELEV,total_dist_dat_split2015Cover[[1]]$ELEV, weight=as.numeric(total_dist_dat_split1969Cover[[1]]$TotalCover), weighty=as.numeric(total_dist_dat_split2015Cover[[1]]$TotalCover))$coefficients
+
+
+
+
+#####OTV########
+
+totalcover_longOTV3<-merge(totalcover_longOTV, env_imp, by="PLOTYEAR")
+
+
+totalcoverOTV_1969<-subset(totalcover_longOTV3, YEAR==1969)
+totalcoverOTV_2015<-subset(totalcover_longOTV3, YEAR==2015)
+
+
+# split the dataframe by species##
+
+total_dist_dat_split1969OTV<-split.data.frame(x = totalcoverOTV_1969,f = totalcover_1969$SPECIES)
+total_dist_dat_split2015OTV<-split.data.frame(x = totalcoverOTV_2015,f =totalcover_2015$SPECIES)
+
+
+####Can't get the apply function to work...so just have to cycle through all 11 manually for now....###
+
+
+wtd.t.test(total_dist_dat_split1969OTV[[1]]$ELEV,total_dist_dat_split2015OTV[[1]]$ELEV, weight=as.numeric(total_dist_dat_split1969OTV[[1]]$TotalOTV), weighty=as.numeric(total_dist_dat_split2015OTV[[1]]$TotalOTV))
+
+
+
+
+
+
+
+```
+
+
+
+
+
+```{weighted t tests elevation by layer COVER}
 
 #####COVER########
 
@@ -227,44 +328,125 @@ elev2015Cover<-tree_longplot%>%filter(Year=="2015")%>%filter(Cover>0)
 ## split the dataframe by species / layer##
 
 dist_dat_split1969Cover<-split.data.frame(x = elev1969Cover,f = elev1969Cover$SPECIES2)
+
 dist_dat_split2015Cover<-split.data.frame(x = elev2015Cover,f = elev2015Cover$SPECIES2)
 
 ## weighted t test for elevation#####
 
-###notworking...###
 
-weightedttests<-as.data.frame(stack(mapply(function(x, y) wtd.t.test(x$ELEV,y$ELEV, weight=x$Cover, weighty=y$Cover, total_dist_dat_split1969Cover, total_dist_dat_split2015Cover))))
+weightedttests2<-mapply(x = split.data.frame(x = elev1969Cover,f = elev1969Cover$SPECIES2),y = split.data.frame(x = elev2015Cover,f = elev2015Cover$SPECIES2),function(x,y){
+  z<-wtd.t.test(x$ELEV, y$ELEV, weight=x$Cover, weighty=y$Cover, samedata=FALSE)$coefficients
+  return(data.frame(z))
+})
 
 
-
-
-
-##this isnt working...need to troubleshoot the apply function##
 
 
 ### weighted elevation averages###
-weightedmean1969<-stack(lapply(X = dist_dat_split1969Cover,function(t){
+weightedmean1969COVER<-stack(lapply(X = dist_dat_split1969Cover,function(t){
   means1969<-weighted.mean(t$ELEV, t$Cover)
   return(means1969)
 }
 ))
  
-weightedmean2015<-stack(lapply(X = dist_dat_split2015Cover,function(t){
+weightedmean2015COVER<-stack(lapply(X = dist_dat_split2015Cover,function(t){
   means2015<-weighted.mean(t$ELEV, t$Cover)
   return(means2015)
 }
 ))
 
-elev1969model <- lm(values ~ 1, data = weightedmean1969)
-elev2015model <- lm(values ~ 1, data = weightedmean2015)
 
-par(mfrow = c(2, 2))
-plot(elev1969model)
+#####OTV########
 
-#####OTVR########
+
+
+### weighted elevation averages###
+weightedmean1969OTV<-stack(lapply(X = dist_dat_split1969Cover,function(t){
+  means1969<-weighted.mean(t$ELEV, t$OTV)
+  return(means1969)
+}
+))
+ 
+weightedmean2015OTV<-stack(lapply(X = dist_dat_split2015Cover,function(t){
+  means2015<-weighted.mean(t$ELEV, t$OTV)
+  return(means2015)
+}
+))
 
 
 ```
+
+
+
+
+
+```{weighted t tests elevation by layer OTV}
+
+#####OTV########
+
+tree_longplot<-merge(tree_long3, env_imp[3:6], by="PLOTYEAR")
+
+tree_longplot$ELEV<-as.numeric(tree_longplot$ELEV)
+
+X1969 = split.data.frame(x = elev1969Cover,f = elev1969Cover$SPECIES2)
+
+Y2015 = split.data.frame(x = elev2015Cover,f = elev2015Cover$SPECIES2)
+
+####
+weightedttestsOTV<-mapply(x = split.data.frame(x = elev1969Cover,f = elev1969Cover$SPECIES2),y = split.data.frame(x = elev2015Cover,f = elev2015Cover$SPECIES2),function(x,y){
+  z<-wtd.t.test(x$ELEV, y$ELEV, weight=x$OTV, weighty=y$OTV, samedata=FALSE)$coefficients
+  return(data.frame(z))
+})
+
+###manual way of extracting values###
+
+
+wtd.t.test(X1969[[1]]$ELEV, Y2015[[1]]$ELEV, weight=X1969[[1]]$OTV, weighty=Y2015[[1]]$OTV, samedata=FALSE)
+
+
+###values in table###
+
+
+
+## split the dataframe by species / layer##
+
+dist_dat_split1969OTV<-split.data.frame(x = elev1969Cover,f = elev1969Cover$SPECIES2)
+
+dist_dat_split2015OTV<-split.data.frame(x = elev2015Cover,f = elev2015Cover$SPECIES2)
+
+
+
+### weighted elevation averages OTV ###
+weightedmean1969OTV<-stack(lapply(X = dist_dat_split1969Cover,function(t){
+  means1969<-weighted.mean(t$ELEV, t$OTV)
+  return(means1969)
+}
+))
+
+weightedmean1969OTVdf<-as.data.frame(weightedmean1969OTV)
+ 
+weightedmean2015OTV<-stack(lapply(X = dist_dat_split2015Cover,function(t){
+  means2015<-weighted.mean(t$ELEV, t$OTV)
+  return(means2015)
+}
+))
+
+weightedmean1969OTVdf<-as.data.frame(weightedmean1969OTV)
+weightedmean2015OTVdf<-as.data.frame(weightedmean2015OTV)
+
+###
+
+weightedmeans<-as.data.frame(cbind(elev1969ls = weightedmean1969OTVdf$values,elev2015ls = weightedmean2015OTVdf$values))
+
+weightedmeans2<-weightedmeans %>% mutate(diff=elev2015ls-elev1969ls) 
+
+##values for table 
+
+
+
+```
+
+
 
 
 
@@ -553,6 +735,313 @@ dev.off()
 ```
 
 
+```{r ordination with cover data}
+
+### spp matrix total cover##
+
+head(totalcover_2)
+##
+
+###
+#get sums of plot abundance to elimnate plots with no trees
+totalcover_2$sum<-rowSums(totalcover_2[c(4:15)])
+
+##remove plot B61 b/c of no trees##
+
+totalcover_final<-totalcover_2 %>% filter(PLOT != "B61")
+
+siteandvegdata<-merge(totalcover_final, env_imp, by="PLOTYEAR")
+
+sitedata<-siteandvegdata %>% select(PLOTYEAR, Plot, Year, ELEV, HLI, TPI_25)
+
+
+
+####ORDINATION##
+
+##
+spp.rel <-decostand(totalcover_final[4:15], method = "total")
+
+
+
+##run Multiple Response Permutations Procedure (MRPP)
+mrpp((spp.rel), sitedata$Year, permutations = 999, distance = "bray", weight.type = 1, strata = NULL, parallel = getOption("mc.cores"))
+
+##run ordination
+ord <- metaMDS(spp.rel, k=3, autotransform = FALSE)
+
+
+#######get environmental vector for elevation and hli
+##extract just elevation and hli from env matrix
+env_elev_hli<-  sitedata[c(4:5)]
+
+#environmental correaltion with axes 
+env_fit <- envfit(ord, env_elev_hli, permu = 999)
+env_fit
+
+####create plot of species in ordination space  (APPENDIX 8)
+#jpeg("sawyer species ordination.jpg", units="in", width = 5, height = 5, res=350)####plot species with env
+#par(mfrow=c(2,1))
+cols<-c("gray30", "green4")
+plot(ord, type="n", cex.lab=2)
+plot(env_fit, p.max=0.01, col= "black")
+
+text(ord, display = "spec", cex=.85, col="black", pch=21)
+#dev.off()
+
+
+###
+
+#####create ordination plot with vectors and hulls (FIGURE 7)
+#jpeg("sawyer plot ordination.jpg", units="in", width = 6, height = 6, res=350)
+
+
+plot(ord, type="n", cex.lab=2,cex.axis=2, xlab="NMDS 1", ylab="NMDS 2")
+box(lwd=2)
+with(sitedata, points(ord, display="sites", col=cols[Year], pch=21, bg=cols[Year]))
+
+with(sitedata, legend("topleft", legend = levels(Year), bty = "n",
+                     cex=1, col = cols, pch = 21, pt.bg = cols))
+
+
+ordiellipse(ord, sitedata$Year, draw="polygon", col = cols, lwd="1",label=FALSE)
+plot(env_fit, p.max=0.05, col= "black", cex=1)
+
+#dev.off()
+
+
+
+```
+
+
+```{r ordination with OTV data}
+
+
+
+totalOTV_wide <- spread(totalcover_longOTV2, SPECIES, TotalOTV)
+
+##totalOTV_wide is the sp matrix##
+
+##remove plot B61 b/c of no trees##
+
+totalOTV_1<-subset(totalOTV_wide, PLOTYEAR!="B611969")
+totalOTV_final<-subset(totalOTV_1, PLOTYEAR!="B612015")
+
+
+####
+siteandvegdata<-merge(totalOTV_final, env_imp, by="PLOTYEAR")
+
+sitedata<-siteandvegdata %>% select(PLOTYEAR, Plot, Year, ELEV, HLI, TPI_25)
+
+
+####
+
+
+####ORDINATION##
+
+##
+spp.relOTV <-decostand(totalOTV_final[2:13], method = "total")
+
+
+##run Multiple Response Permutations Procedure (MRPP)
+mrpp((spp.relOTV), sitedata$Year, permutations = 999, distance = "bray", weight.type = 1, strata = NULL, parallel = getOption("mc.cores"))
+
+##run ordination
+ordOTV <- metaMDS(spp.relOTV, k=3, autotransform = FALSE)
+
+
+#######get environmental vector for elevation and hli
+##extract just elevation and hli from env matrix
+env_elev_hli<-  sitedata[c(4:5)]
+
+#environmental correaltion with axes 
+env_fitOTV <- envfit(ordOTV, env_elev_hli, permu = 999)
+env_fitOTV
+
+####create plot of species in ordination space  (APPENDIX 8)
+#jpeg("sawyer species ordination.jpg", units="in", width = 5, height = 5, res=350)####plot species with env
+#par(mfrow=c(2,1))
+cols<-c("gray30", "green4")
+plot(ordOTV, type="n", cex.lab=2)
+plot(env_fitOTV, p.max=0.01, col= "black")
+
+text(ordOTV, display = "spec", cex=.85, col="black", pch=21)
+#dev.off()
+
+
+###
+
+#####create ordination plot with vectors and hulls (FIGURE 7)
+#jpeg("sawyer plot ordination.jpg", units="in", width = 6, height = 6, res=350)
+
+
+plot(ordOTV, type="n", cex.lab=1.5,cex.axis=1.5, xlab="NMDS 1", ylab="NMDS 2")
+box(lwd=2)
+with(sitedata, points(ordOTV, display="sites", col=cols[Year], pch=21, bg=cols[Year]))
+
+with(sitedata, legend("topleft", legend = levels(Year), bty = "n",
+                     cex=1, col = cols, pch = 21, pt.bg = cols))
+
+
+ordiellipse(ord, sitedata$Year, draw="polygon", col = cols, lwd="1",label=FALSE)
+plot(env_fit, p.max=0.05, col= "black", cex=1)
+
+#dev.off()
+
+####THIS IS THE NEW FIGURE####
+
+```
+
+
+
+```{r MANTEL TESTS OTV}
+
+siteandvegdata<-merge(totalOTV_final, env_imp, by="PLOTYEAR")
+
+
+########MANTEL TESTS
+
+###1969 DATA
+##create species AND env matrix
+comp_1969<-siteandvegdata %>% filter(Year==1969) %>% select(ABCO:TSME)
+env_1969<-siteandvegdata %>% filter(Year==1969) %>% select(PLOTYEAR, Plot:TPI_25)
+
+
+veg.dist1969 <- vegdist((comp_1969)) # Bray-Curtis
+
+
+########2015
+##create species wide species matrix
+
+comp_2015<-siteandvegdata %>% filter(Year==2015) %>% select(ABCO:TSME)
+env_2015<-siteandvegdata %>% filter(Year==2015) %>% select(PLOTYEAR, Plot:TPI_25)
+
+
+veg.dist2015 <- vegdist((comp_2015)) # Bray-Curtis
+
+
+
+####elevation
+
+elev.dist <- vegdist(env_1969$ELEV, "euclid")
+elev_mantel_1969<-mantel((veg.dist1969), elev.dist)
+elev_mantel_1969
+elev_decay.exp_1969<-decay.model((1 - veg.dist1969 + 0.00001), (elev.dist), model.type="exponential", perm=100)
+elev_decay.exp_1969
+
+
+elev_mantel_2015<-mantel((veg.dist2015), elev.dist)
+elev_mantel_2015
+elev_decay.exp_2015<-decay.model((1 - veg.dist2015 + 0.00001), elev.dist, model.type="exponential", perm=100)
+elev_decay.exp_2015
+
+diffslope(elev.dist, veg.dist1969, elev.dist,  veg.dist2015, permutations = 999, ic=TRUE)
+
+
+hli.dist <- vegdist(env_1969$HLI, "euclid")
+hli_mantel_1969<-mantel(veg.dist1969, hli.dist)
+hli_mantel_1969
+hli_decay.exp_1969<-decay.model((1 - veg.dist1969 + 0.00001), (hli.dist), model.type="exponential", perm=100)
+hli_decay.exp_1969
+
+hli_mantel_2015<-mantel(veg.dist2015, hli.dist)
+hli_mantel_2015
+hli_decay.exp_2015<-decay.model((1 - veg.dist2015 + 0.00001), (hli.dist), model.type="exponential", perm=100)
+hli_decay.exp_2015
+
+diffslope(hli.dist, veg.dist1969, hli.dist,  veg.dist2015, permutations = 999, ic=TRUE)
+
+###for the values in Table 4##
+
+elev_decay.exp_1969
+elev_decay.exp_2015
+
+hli_decay.exp_1969
+hli_decay.exp_2015
+
+```
+
+
+```{r MANTEL TESTS OTV}
+
+siteandvegdata<-merge(totalOTV_final, env_imp, by="PLOTYEAR")
+
+
+########MANTEL TESTS
+
+###1969 DATA
+##create species AND env matrix
+comp_1969<-siteandvegdata %>% filter(Year==1969) %>% select(ABCO:TSME)
+env_1969<-siteandvegdata %>% filter(Year==1969) %>% select(PLOTYEAR, Plot:TPI_25)
+
+
+veg.dist1969 <- vegdist((comp_1969)) # Bray-Curtis
+
+
+########2015
+##create species wide species matrix
+
+comp_2015<-siteandvegdata %>% filter(Year==2015) %>% select(ABCO:TSME)
+env_2015<-siteandvegdata %>% filter(Year==2015) %>% select(PLOTYEAR, Plot:TPI_25)
+
+
+veg.dist2015 <- vegdist((comp_2015)) # Bray-Curtis
+
+
+
+####elevation
+
+elev.dist <- vegdist(env_1969$ELEV, "euclid")
+elev_mantel_1969<-mantel((veg.dist1969), elev.dist)
+elev_mantel_1969
+elev_decay.exp_1969<-decay.model((1 - veg.dist1969 + 0.00001), (elev.dist), model.type="exponential", perm=100)
+elev_decay.exp_1969
+
+
+elev_mantel_2015<-mantel((veg.dist2015), elev.dist)
+elev_mantel_2015
+elev_decay.exp_2015<-decay.model((1 - veg.dist2015 + 0.00001), elev.dist, model.type="exponential", perm=100)
+elev_decay.exp_2015
+
+diffslope(elev.dist, veg.dist1969, elev.dist,  veg.dist2015, permutations = 999, ic=TRUE)
+
+
+hli.dist <- vegdist(env_1969$HLI, "euclid")
+hli_mantel_1969<-mantel(veg.dist1969, hli.dist)
+hli_mantel_1969
+hli_decay.exp_1969<-decay.model((1 - veg.dist1969 + 0.00001), (hli.dist), model.type="exponential", perm=100)
+hli_decay.exp_1969
+
+hli_mantel_2015<-mantel(veg.dist2015, hli.dist)
+hli_mantel_2015
+hli_decay.exp_2015<-decay.model((1 - veg.dist2015 + 0.00001), (hli.dist), model.type="exponential", perm=100)
+hli_decay.exp_2015
+
+diffslope(hli.dist, veg.dist1969, hli.dist,  veg.dist2015, permutations = 999, ic=TRUE)
+
+#jpeg("sawyer species turnover.jpg", units="in", width = 9, height = 5, res=350)####plot species with env
+
+par(mfrow=c(1,2))
+####
+plot.decay(elev_decay.exp_2015, col="white", ylim=c(0,.75), main="Elevation")
+plot.decay(elev_decay.exp_1969, col="gray30", remove.dots=TRUE, add=TRUE, lwd=2, cex=0.75)
+plot.decay(elev_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE,  lwd=2, cex=0.75)
+legend(750, 0.7, legend=c("1969", "2015"),lty=1:1,
+       col=c("gray30","green3"), lwd=2, box.lty=0)
+
+##HLI PLOT
+plot.decay(hli_decay.exp_2015, col="white", ylim=c(0,.75), main="Heat Load Index")
+plot.decay(hli_decay.exp_1969, col="grey30", remove.dots=TRUE, add=TRUE, lwd=2)
+plot.decay(hli_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE, lwd=2)
+legend(0.45, 0.7, legend=c("1969", "2015"),lty=1:1,
+       col=c("gray30","green3"), lwd=2, box.lty=0)
+
+
+#dev.off()
+
+
+
+
+```
 
 
 ```{r plot ABCO variability bands}
