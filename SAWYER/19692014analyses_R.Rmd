@@ -21,28 +21,16 @@ library(here)
 
 
 
-```{r setup, include=FALSE}
+```{r import site and tree data, include=FALSE}
 
-###import file##
-
-
-##read in table with species data
-sp_imp<-read.csv("C:/Users/Melissa/Dropbox/Sugar Creek Aug 2020/russian_species.csv", header=TRUE)
+###import files tree data and site data##
 
 
 ###reed in long tree data###
-tree_long<-read.csv("C:/Users/Melissa/Dropbox/Sugar Creek Aug 2020/tree_long.csv", header=TRUE)
+tree_long <- read.csv(here("SAWYER/rawdata/tree_long.csv"), header=T)
 
 
-
-
-
-
-
-
-
-
-###create new columns with PLOT YEAR and SPECIES LAYER###
+##create new columns with PLOT YEAR and SPECIES LAYER###
 
 tree_long2<-tree_long %>% mutate(PLOTYEAR= paste0(Plot, Year))%>% mutate(SPECIES2= paste0(SpeciesCode, layer2))
 
@@ -82,7 +70,9 @@ tree.wideOTV[is.na(tree.wideOTV)] <- 0
 
 
 ##read in table with env data
-env_imp<-read.csv("C:/Users/Melissa/Dropbox/Sugar Creek Aug 2020/sawyer_topo_data_09212020.csv", header=TRUE)
+env_imp <- read.csv(here("SAWYER/rawdata/sitedata.csv"), header=T)
+
+
 #make year a factor
 env_imp$Year<-as.factor(env_imp$Year)
 
@@ -95,6 +85,13 @@ all_datOTV<-merge(tree.wideOTV, env_imp, by="PLOTYEAR")
 
 ##read in ABCO results from ERIK###
 #ABCOcan<-read.csv("C:/Users/Mitzi/Desktop/Academic Collaborations/Sugar Creek Aug 2020/ABCO_CAN.csv", header=TRUE)
+
+
+```
+
+
+
+```{r import climate data, include=FALSE}
 
 
 ##read in wide plot-level BCM (downscaled climate data) ##
@@ -131,9 +128,9 @@ all_datOTV<-merge(tree.wideOTV, env_imp, by="PLOTYEAR")
 #bcm_plot19592014_3<-bcm_plot19592014_2 %>% mutate(wyear = ifelse(Month=="Oct"|Month=="Nov"|Month=="Dec", Year, Year-1))%>%select(ID, Year, wyear, Month, ELEV, HLI, Easting, Northing, aet, cwd, pck, pet, ppt, tmn, tmx)
 
 
-
-
 ```
+
+
 
 ```{r sum up layers for total cover and total OTV, echo=FALSE}
 
@@ -317,8 +314,6 @@ wtd.t.test(total_dist_dat_split1969OTV[[1]]$ELEV,total_dist_dat_split2015OTV[[1]
 
 
 ```
-
-
 
 
 
