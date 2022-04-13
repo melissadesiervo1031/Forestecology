@@ -17,6 +17,7 @@ library(weights)
 library(stringr)
 library(viridis)
 library(SciViews)
+library(here)
 
 
 
@@ -31,6 +32,15 @@ sp_imp<-read.csv("C:/Users/Melissa/Dropbox/Sugar Creek Aug 2020/russian_species.
 
 ###reed in long tree data###
 tree_long<-read.csv("C:/Users/Melissa/Dropbox/Sugar Creek Aug 2020/tree_long.csv", header=TRUE)
+
+
+
+
+
+
+
+
+
 
 ###create new columns with PLOT YEAR and SPECIES LAYER###
 
@@ -179,7 +189,7 @@ totalcover_longOTV$TotalOTV[!is.finite(totalcover_longOTV$TotalOTV)] <- 0  ##mak
 ```
 
 
-```{r weighted mean elevations total cover}
+```{r weighted mean elevations total cover and OTV}
 
 ###merge env and sp data cover
 totalcover_long3<-merge(totalcover_long, env_imp, by="PLOTYEAR")
@@ -253,7 +263,7 @@ weightedmeans2<-weightedmeans %>% mutate(elevdiff=elev2015-elev1969) %>% mutate(
 
 
 
-```{r weighted mean t tests total cover}
+```{r weighted mean t tests total cover and OTV}
 
 ###merge env and sp data cover
 totalcover_long3<-merge(totalcover_long, env_imp, by="PLOTYEAR")
@@ -515,10 +525,8 @@ testsOTV<-mapply(function(x, y) wilcox.test(x$OTV,y$OTV, paired=TRUE), dist_dat_
 
 wilcoxbylayertestpvalOTV$values<-round(wilcoxbylayertestpvalOTV$values,6)
 
-#####we've run four tests (seedlings, saplings, canopy, and sum total), so let's use the adjustment of 0.05/4 = 0.0125 for significance (two asterisks) and 0.1/4 = 0.025 for marginal significance (one asterisk). 
 
-wilcoxbylayertestpvalOTV <- data.table(wilcoxbylayertestpvalOTV)
-wilcoxbylayertestpvalOTV$signif <- ifelse(wilcoxbylayertestpvalOTV$values < 0.0125,"significant","not significant")
+###VALUES IN TABLE S5####
 
 ```
 
@@ -555,9 +563,10 @@ wilcoxtestpval$values<-round(wilcoxtestpval$values,4)
 
 ```{r Wilcoxon tests total canopy cover OTV}
 
+head(totalcover_longOTV)
 
-totalOTV_1969<-subset(totalOTV_long2, YEAR==1969)
-totalOTV_2015<-subset(totalOTV_long2, YEAR==2015)
+totalOTV_1969<-subset(totalcover_longOTV, YEAR==1969)
+totalOTV_2015<-subset(totalcover_longOTV, YEAR==2015)
 
 
 # split the dataframe by species##
@@ -576,13 +585,13 @@ wilcoxtestpvalOTV<-as.data.frame(stack(mapply(function(x, y) wilcox.test(x$Total
 wilcoxtestpvalOTV$values<-round(wilcoxtestpvalOTV$values,4)
 
 
-
+###Table s5 last column##
 
 ```
 
 
 
-```{r elevation violin plots by layer}
+```{r plot elevation violin by layer}
 
 mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
@@ -616,7 +625,7 @@ dev.off()
 
 
 
-```{r HLI violin plots by layer}
+```{r plot HLI violin by layer}
 
 mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
@@ -735,7 +744,7 @@ dev.off()
 ```
 
 
-```{r ordination with cover data}
+```{r plot ordination with cover data}
 
 ### spp matrix total cover##
 
@@ -813,7 +822,7 @@ plot(env_fit, p.max=0.05, col= "black", cex=1)
 ```
 
 
-```{r ordination with OTV data}
+```{r plot ordination with OTV data}
 
 
 
@@ -861,7 +870,7 @@ env_fitOTV
 #jpeg("sawyer species ordination.jpg", units="in", width = 5, height = 5, res=350)####plot species with env
 #par(mfrow=c(2,1))
 cols<-c("gray30", "green4")
-plot(ordOTV, type="n", cex.lab=2)
+plot(ordOTV, type="n", cex.lab=1.5)
 plot(env_fitOTV, p.max=0.01, col= "black")
 
 text(ordOTV, display = "spec", cex=.85, col="black", pch=21)
@@ -957,89 +966,6 @@ elev_decay.exp_2015
 
 hli_decay.exp_1969
 hli_decay.exp_2015
-
-```
-
-
-```{r MANTEL TESTS OTV}
-
-siteandvegdata<-merge(totalOTV_final, env_imp, by="PLOTYEAR")
-
-
-########MANTEL TESTS
-
-###1969 DATA
-##create species AND env matrix
-comp_1969<-siteandvegdata %>% filter(Year==1969) %>% select(ABCO:TSME)
-env_1969<-siteandvegdata %>% filter(Year==1969) %>% select(PLOTYEAR, Plot:TPI_25)
-
-
-veg.dist1969 <- vegdist((comp_1969)) # Bray-Curtis
-
-
-########2015
-##create species wide species matrix
-
-comp_2015<-siteandvegdata %>% filter(Year==2015) %>% select(ABCO:TSME)
-env_2015<-siteandvegdata %>% filter(Year==2015) %>% select(PLOTYEAR, Plot:TPI_25)
-
-
-veg.dist2015 <- vegdist((comp_2015)) # Bray-Curtis
-
-
-
-####elevation
-
-elev.dist <- vegdist(env_1969$ELEV, "euclid")
-elev_mantel_1969<-mantel((veg.dist1969), elev.dist)
-elev_mantel_1969
-elev_decay.exp_1969<-decay.model((1 - veg.dist1969 + 0.00001), (elev.dist), model.type="exponential", perm=100)
-elev_decay.exp_1969
-
-
-elev_mantel_2015<-mantel((veg.dist2015), elev.dist)
-elev_mantel_2015
-elev_decay.exp_2015<-decay.model((1 - veg.dist2015 + 0.00001), elev.dist, model.type="exponential", perm=100)
-elev_decay.exp_2015
-
-diffslope(elev.dist, veg.dist1969, elev.dist,  veg.dist2015, permutations = 999, ic=TRUE)
-
-
-hli.dist <- vegdist(env_1969$HLI, "euclid")
-hli_mantel_1969<-mantel(veg.dist1969, hli.dist)
-hli_mantel_1969
-hli_decay.exp_1969<-decay.model((1 - veg.dist1969 + 0.00001), (hli.dist), model.type="exponential", perm=100)
-hli_decay.exp_1969
-
-hli_mantel_2015<-mantel(veg.dist2015, hli.dist)
-hli_mantel_2015
-hli_decay.exp_2015<-decay.model((1 - veg.dist2015 + 0.00001), (hli.dist), model.type="exponential", perm=100)
-hli_decay.exp_2015
-
-diffslope(hli.dist, veg.dist1969, hli.dist,  veg.dist2015, permutations = 999, ic=TRUE)
-
-#jpeg("sawyer species turnover.jpg", units="in", width = 9, height = 5, res=350)####plot species with env
-
-par(mfrow=c(1,2))
-####
-plot.decay(elev_decay.exp_2015, col="white", ylim=c(0,.75), main="Elevation")
-plot.decay(elev_decay.exp_1969, col="gray30", remove.dots=TRUE, add=TRUE, lwd=2, cex=0.75)
-plot.decay(elev_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE,  lwd=2, cex=0.75)
-legend(750, 0.7, legend=c("1969", "2015"),lty=1:1,
-       col=c("gray30","green3"), lwd=2, box.lty=0)
-
-##HLI PLOT
-plot.decay(hli_decay.exp_2015, col="white", ylim=c(0,.75), main="Heat Load Index")
-plot.decay(hli_decay.exp_1969, col="grey30", remove.dots=TRUE, add=TRUE, lwd=2)
-plot.decay(hli_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE, lwd=2)
-legend(0.45, 0.7, legend=c("1969", "2015"),lty=1:1,
-       col=c("gray30","green3"), lwd=2, box.lty=0)
-
-
-#dev.off()
-
-
-
 
 ```
 
