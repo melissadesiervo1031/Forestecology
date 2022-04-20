@@ -733,6 +733,18 @@ env_fit
 
 env_fitdf <- as.data.frame(vegan::scores(env_fit, display = "vectors"))
 
+env_fitdf2<-as.data.frame(env_fit$vectors$arrows*sqrt(env_fit$vectors$r))
+
+
+
+
+arrow_factor <- ordiArrowMul(env_fit)
+env_fitdf2 <- as.data.frame(vegan::scores(env_fit, display = "vectors")) * arrow_factor
+env_fitdf3 <- cbind(env_fitdf2, vars = rownames(env_fitdf2), Pvalues = env_fit$vectors$pvals, R_squared = env_fit$vectors$r)
+
+
+
+
 env_fitdf <- cbind(env_fitdf, Var = rownames(env_fitdf))
 
 ###hulls for plotting###
@@ -744,7 +756,8 @@ hulls <- NMDSandplots %>%  slice(chull(NMDS1, NMDS2))
 mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
 
-ordinationplot <- ggplot() +xlim(-1.75, 1.9)+ylim(-1.75, 1.5) +stat_ellipse(geom="polygon",alpha = 0.2, data=NMDSandplots, aes(x = NMDS1, y = NMDS2, fill=Year))+ geom_point(data=NMDSandplots, aes(NMDS1, NMDS2, fill=Year), shape = 21, size=0.75)+mytheme+scale_fill_manual(values=alpha(c("gray30", "green4"), 1)) +geom_segment(data = env_fitdf , aes(x = 0, xend = NMDS1+1, y = 0, yend = NMDS2+1),     arrow = arrow(length = unit(0.25, "cm")), colour = "black") +annotate(geom="text", x=.75, y=1.2, label="HLI",  color="black")+annotate(geom="text", x=1.1, y=1.35, label="ELEV",  color="black")+ theme(legend.position = "right")
+ordinationplot <- ggplot() +stat_ellipse(geom="polygon",alpha = 0.2, data=NMDSandplots, aes(x = NMDS1, y = NMDS2, fill=Year))+ geom_point(data=NMDSandplots, aes(NMDS1, NMDS2, fill=Year), shape = 21, size=0.75)+mytheme+scale_fill_manual(values=alpha(c("gray30", "green4"), 1))+ geom_segment(data = env_fitdf3 , aes(x = 0, xend = NMDS1 * arrow_factor, y = 0, yend = NMDS2 * arrow_factor),
+               arrow = arrow(length = unit(0.25, "cm")), colour = "black")  +annotate(geom="text", x=0.1, y=1.3, label="HLI",  color="black")+annotate(geom="text", x=1.5, y=1.5, label="ELEV",  color="black")+ theme(legend.position = c(0.15, 0.85))+theme(legend.key.size=unit(0.7, 'cm'))+theme(legend.title=element_blank())
 
 
 
@@ -843,6 +856,36 @@ legend(0.5, 0.7, legend=c("1969", "2015"),lty=1:1,
        col=c("gray30","green4"), lwd=2, box.lty=0)
 
 ```
+
+
+
+
+```{r plot decay functions using ggplot2}
+
+###
+
+elev_decay.exp_2015df<-as.data.frame(elev_decay.exp_2015$data)
+
+
+elev_decay.exp_2015df$model
+
+par(mfrow=c(1,2))
+####
+plot.decay(elev_decay.exp_2015, col="white", ylim=c(0,.7), main="Elevation")
+plot.decay(elev_decay.exp_1969, col="gray30", remove.dots=TRUE, add=TRUE, lwd=2, cex=0.75)
+plot.decay(elev_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE,  lwd=2, cex=0.75)
+legend(800, 0.7, legend=c("1969", "2015"),lty=1:1,
+       col=c("gray30","green4"), lwd=2, box.lty=0)
+
+##HLI PLOT
+plot.decay(hli_decay.exp_2015, col="white", ylim=c(0,.7), main="Heat Load Index")
+plot.decay(hli_decay.exp_1969, col="grey30", remove.dots=TRUE, add=TRUE, lwd=2)
+plot.decay(hli_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE, lwd=2)
+legend(0.5, 0.7, legend=c("1969", "2015"),lty=1:1,
+       col=c("gray30","green4"), lwd=2, box.lty=0)
+
+```
+
 
 
 ```{r plot ABCO variability bands}
