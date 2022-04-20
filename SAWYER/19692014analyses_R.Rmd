@@ -1,6 +1,6 @@
 ---
 title: "Cover_elevation_stats_fig"
-author: "Melissa DeSiervo"
+author: "Melissa DeSiervo" mhdesiervo@gmail.com, mdesierv@uwyo.edu
 date: "4/7/2021"
 output: html_document
 ---
@@ -210,7 +210,7 @@ weightedmean1969COVER<-stack(lapply(X = total_dist_dat_split1969Cover,function(t
 }
 ))
  
-weightedmean2015COVER<-stack(lapply(X = dist_dat_split2015Cover,function(t){
+weightedmean2015COVER<-stack(lapply(X = total_dist_dat_split2015Cover,function(t){
   means2015<-weighted.mean(t$ELEV, t$TotalCover)
   return(means2015)
 }
@@ -260,7 +260,7 @@ weightedmeans2<-weightedmeans %>% mutate(elevdiff=elev2015-elev1969) %>% mutate(
 
 
 
-```{r weighted mean t tests total cover and OTV}
+```{r weighted mean t tests total cover}
 
 ###merge env and sp data cover
 totalcover_long3<-merge(totalcover_long, env_imp, by="PLOTYEAR")
@@ -283,32 +283,6 @@ total_dist_dat_split2015Cover<-split.data.frame(x = totalcover_2015,f =totalcove
 
 
 wtd.t.test(total_dist_dat_split1969Cover[[1]]$ELEV,total_dist_dat_split2015Cover[[1]]$ELEV, weight=as.numeric(total_dist_dat_split1969Cover[[1]]$TotalCover), weighty=as.numeric(total_dist_dat_split2015Cover[[1]]$TotalCover))$coefficients
-
-
-
-
-#####OTV########
-
-totalcover_longOTV3<-merge(totalcover_longOTV, env_imp, by="PLOTYEAR")
-
-
-totalcoverOTV_1969<-subset(totalcover_longOTV3, YEAR==1969)
-totalcoverOTV_2015<-subset(totalcover_longOTV3, YEAR==2015)
-
-
-# split the dataframe by species##
-
-total_dist_dat_split1969OTV<-split.data.frame(x = totalcoverOTV_1969,f = totalcover_1969$SPECIES)
-total_dist_dat_split2015OTV<-split.data.frame(x = totalcoverOTV_2015,f =totalcover_2015$SPECIES)
-
-
-####Can't get the apply function to work...so just have to cycle through all 11 manually for now....###
-
-
-wtd.t.test(total_dist_dat_split1969OTV[[1]]$ELEV,total_dist_dat_split2015OTV[[1]]$ELEV, weight=as.numeric(total_dist_dat_split1969OTV[[1]]$TotalOTV), weighty=as.numeric(total_dist_dat_split2015OTV[[1]]$TotalOTV))
-
-
-
 
 
 
@@ -380,8 +354,6 @@ weightedmean2015OTV<-stack(lapply(X = dist_dat_split2015Cover,function(t){
 
 
 ```
-
-
 
 
 
@@ -491,42 +463,6 @@ wilcoxbylayertestpval$signif <- ifelse(wilcoxbylayertestpval$values < 0.0125,"si
 
 
 
-```{r Wilcoxon tests canopy cover by layer OTV}
-
-
-##wilcox signed rank tests by layer##
-
-tryOTV<-gather(all_datOTV, SPECIES,OTV, ABCOCAN:TSMERSEED) ##keep the zeroes##
-
-tryOTV$SPECIES<-as.factor(tryOTV$SPECIES)
-
-tryOTV$OTV<-as.numeric(tryOTV$OTV)
-
-###subset dataframe by species/ layer##
-
-elev1969withzerosOTV<-tryOTV%>%filter(Year=="1969")
-elev2015withzerosOTV<-tryOTV%>%filter(Year=="2015")
-
-dist_dat_split1969_withzerosOTV<-split.data.frame(x = elev1969withzerosOTV,f = elev1969withzerosOTV$SPECIES)
-dist_dat_split2015_withzerosOTV<-split.data.frame(x = elev2015withzerosOTV,f = elev2015withzerosOTV$SPECIES)
-
-
-## wilcoxon signed rank tests for layer #####
-wilcoxbylayerteststatOTV<-as.data.frame(stack(mapply(function(x, y) wilcox.test(x$OTV,y$OTV, paired=TRUE)$statistic, dist_dat_split1969_withzerosOTV, dist_dat_split2015_withzerosOTV)))
-
-wilcoxbylayertestpvalOTV<-as.data.frame(stack(mapply(function(x, y) wilcox.test(x$OTV,y$OTV, paired=TRUE)$p.value, dist_dat_split1969_withzerosOTV, dist_dat_split2015_withzerosOTV)))
-
-testsOTV<-mapply(function(x, y) wilcox.test(x$OTV,y$OTV, paired=TRUE), dist_dat_split1969_withzerosOTV, dist_dat_split2015_withzerosOTV)
-
-wilcoxbylayertestpvalOTV$values<-round(wilcoxbylayertestpvalOTV$values,6)
-
-
-###VALUES IN TABLE S5####
-
-```
-
-
-
 ```{r Wilcoxon tests total canopy cover COVER}
 
 
@@ -556,45 +492,25 @@ wilcoxtestpval$values<-round(wilcoxtestpval$values,4)
 
 
 
-```{r Wilcoxon tests total canopy cover OTV}
-
-head(totalcover_longOTV)
-
-totalOTV_1969<-subset(totalcover_longOTV, YEAR==1969)
-totalOTV_2015<-subset(totalcover_longOTV, YEAR==2015)
-
-
-# split the dataframe by species##
-
-total_dist_dat_split1969OTV<-split.data.frame(x = totalOTV_1969,f = totalOTV_1969$SPECIES)
-total_dist_dat_split2015OTV<-split.data.frame(x = totalOTV_2015,f =totalOTV_2015$SPECIES)
-
-
-
-
-## wilcoxon signed rank tests for total cover #####
-wilcoxteststatOTV<-as.data.frame(stack(mapply(function(x, y) wilcox.test(x$TotalOTV,y$TotalOTV, paired=TRUE)$statistic, total_dist_dat_split1969OTV, total_dist_dat_split2015OTV)))
-
-wilcoxtestpvalOTV<-as.data.frame(stack(mapply(function(x, y) wilcox.test(x$TotalOTV,y$TotalOTV, paired=TRUE)$p.value, total_dist_dat_split1969OTV, total_dist_dat_split2015OTV)))
-
-wilcoxtestpvalOTV$values<-round(wilcoxtestpvalOTV$values,4)
-
-
-###Table s5 last column##
-
-```
-
-
 
 ```{r plot elevation violin by layer}
+
+##elevation OTV use tree_long3 ###
+
+
+
+elevationlongOTV<-merge(tree_long3, env_imp, by=c("PLOTYEAR", "Plot", "Year"))
+
+
+elevationlongOTV$Year<-as.factor(elevationlongOTV$Year)
 
 mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
 
 dodge <- position_dodge(width = 0.8)
 
-Elevbylayer<-ggplot(aes(x = LAYER, y = ELEV),data = dist_dat2)+   geom_violin(position=dodge, trim=TRUE, alpha=0.7, aes(fill=Year)) + geom_boxplot(width=0.2,lwd=0.3, position=dodge,outlier.color=NA, aes(color=Year))+
-  facet_wrap(~SPECIES2,nrow = 4, ncol = 3) + 
+Elevbylayer<-ggplot(aes(x = layer2, y = ELEV),data = elevationlongOTV)+   geom_violin(position=dodge, trim=TRUE, alpha=0.7, aes(fill=Year)) + geom_boxplot(width=0.2,lwd=0.3, position=dodge,outlier.color=NA, aes(color=Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
   mytheme +
   ylab("Elevation (m)") +
   xlab("")+
@@ -609,11 +525,6 @@ Elevbylayer<-ggplot(aes(x = LAYER, y = ELEV),data = dist_dat2)+   geom_violin(po
   theme(legend.title = element_blank())
   
 
-### to export...add in file path where you want to save ##
-
-jpeg("C:/Users/Mitzi/Desktop/Collaborations/Sugar Creek Aug 2020/elev_violin_layer.jpeg",width = 6, height = 5,units = 'in', res = 600)
-Elevbylayer
-dev.off()
 
 
 ```
@@ -625,60 +536,54 @@ dev.off()
 mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
 
-HLIbylayer<-ggplot(aes(x = LAYER, y = HLI,fill = Year,),data = dist_dat2) +
-  geom_violin(position=position_dodge(),trim=TRUE) +
-  facet_wrap(~SPECIES2,nrow = 4, ncol = 3) + 
-  mytheme +
-  ylab("Heat load index") +
-  xlab("")+
-  scale_fill_manual(values=alpha(c("gray30", "green4"), 0.7))+
-  theme(strip.text = element_text(size=9.5))+
-  theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
-  theme(panel.grid.major.y  = element_line(colour = "grey", size = 0.5))+
-  theme(legend.position="right")+
-  theme(legend.title = element_blank())
-
-HLIbylayer<-ggplot(aes(x = LAYER, y =HLI),data = dist_dat2)+   geom_violin(position=dodge, trim=TRUE, alpha=0.7, aes(fill=Year)) + geom_boxplot(width=0.2,lwd=0.3, position=dodge,outlier.color=NA, aes(color=Year))+
-  facet_wrap(~SPECIES2,nrow = 4, ncol = 3) + 
+HLIbylayer<-ggplot(aes(x = layer2, y = HLI),data = elevationlongOTV)+   geom_violin(position=dodge, trim=TRUE, alpha=0.7, aes(fill=Year)) + geom_boxplot(width=0.2,lwd=0.3, position=dodge,outlier.color=NA, aes(color=Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
   mytheme +
   ylab("Heat load index") +
   xlab("")+
   theme(strip.text = element_text(size=9.5))+
   theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
   theme(panel.grid.major.y  = element_line(colour = "grey", size = 0.5))+
+  scale_y_continuous(limits=c(1200, 2500), breaks=seq(1200,2500,300))+
   scale_fill_manual(values=c("gray30", "green4"))+
   scale_color_manual(values=c("black", "black"))+
-  ylim(c(0.25,1))+
   theme(legend.position="right")+
   theme(legend.title = element_blank())
+  
 
-
-
-### to export...add in file path where you want to save ##
-
-jpeg("C:/Users/Mitzi/Desktop/Collaborations/Sugar Creek Aug 2020/HLI_violin_layer.jpeg",width = 6, height = 5,units = 'in', res = 600)
-HLIbylayer
-dev.off()
 
 
 ```
 
 
 
-
 ```{r plot canopy cover by layer}
 
+
+head(tree_long3)
+
+##Average by year, layer, spp##
+
+
+avgcoverbylayer<-tree_long3 %>% group_by(Year, Species, layer2) %>% dplyr::summarise(meancover=mean(Cover, na.rm=FALSE), sdcover=sd(Cover),n=n(), secover=sdcover/sqrt(n))
+
+avgcoverbylayerdf<-as.data.frame(avgcoverbylayer)
+
+avgcoverbylayerdf$Year<-as.factor(avgcoverbylayerdf$Year)
+
+
+
+####
 mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
 
-##add stars for significance in paint##
 
 ##
 
-coverbylayer<-ggplot(aes(x = LAYER, y = meancover,fill = Year,),data = avgcoverbylayerdf) +
+coverbylayer<-ggplot(aes(x = layer2, y = meancover,fill = Year,),data = avgcoverbylayerdf) +
   geom_bar(stat="identity",position=position_dodge()) +
   geom_errorbar(aes(ymin=meancover-secover, ymax=meancover+secover), width=.2,position=position_dodge(.9))+
-  facet_wrap(~SPECIES2,nrow = 3, ncol = 4)+
+  facet_wrap(~Species,nrow = 3, ncol = 4)+
   ylab("Cover (%)") +
   xlab("")+
   scale_fill_manual(values=alpha(c("gray30", "green4"), 1))+
@@ -691,13 +596,7 @@ coverbylayer<-ggplot(aes(x = LAYER, y = meancover,fill = Year,),data = avgcoverb
   mytheme
 
 
-##
-
-jpeg("C:/Users/Mitzi/Desktop/Collaborations/Sugar Creek Aug 2020/coverby_layer.jpeg",width = 6, height = 5,units = 'in', res = 600)
-coverbylayer
-dev.off()
-
-
+##add stars for significance in paint##
 
 
 
@@ -707,6 +606,11 @@ dev.off()
 
 ```{r plot canopy cover total}
 
+head(avgcovertotal)
+
+
+avgcovertotaldf<-as.data.frame(avgcovertotal)
+
 mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
 
@@ -715,7 +619,7 @@ avgcovertotaldf2<-avgcovertotaldf%>%mutate(SPECIES2 = SPECIES)
 avgcovertotaldf2$SPECIES2<-plyr::mapvalues(avgcovertotaldf2$SPECIES2, from=c("ABCO", "ABLAS", "ABMA", "CADE", "PIBR", "PICO", "PIEN", "PILA", "PIMO", "PIPO", "PSME", "TSME"), to=c("Abies concolor", "Abies lasiocarpa", "Abies magnifica", "Calocedrus decurrens", "Picea breweriana", "Picea engelmannii", "Pinus contorta","Pinus lambertiana","Pinus monticola", "Pinus ponderosa", "Pseudotsuga menziesii", "Tsuga mertensiana"))
 
 
-covertotal<-ggplot(aes(x = SPECIES2, y = meancover,fill = Year,),data = avgcovertotaldf2) +
+covertotal<-ggplot(aes(x = SPECIES2, y = meancover,fill = YEAR,),data = avgcovertotaldf2) +
   geom_bar(stat="identity",position=position_dodge()) +
   geom_errorbar(aes(ymin=meancover-secover, ymax=meancover+secover), width=.2,position=position_dodge(.9))+
   mytheme +
@@ -732,14 +636,10 @@ covertotal<-ggplot(aes(x = SPECIES2, y = meancover,fill = Year,),data = avgcover
   theme(axis.text.x=element_text(angle=50, face="italic",hjust = 1))
 
 
-jpeg("C:/Users/Mitzi/Desktop/Collaborations/Sugar Creek Aug 2020/totalcover.jpeg",width = 5, height = 3,units = 'in', res = 600)
-covertotal
-dev.off()
-
 ```
 
 
-```{r plot ordination with cover data}
+```{r ordination with cover data}
 
 ### spp matrix total cover##
 
@@ -817,89 +717,45 @@ plot(env_fit, p.max=0.05, col= "black", cex=1)
 ```
 
 
-```{r plot ordination with OTV data}
+```{r plot ordination}
 
+##pull scores from ordination##
 
+NMDSscores<- vegan::scores(ord, display = "sites")
 
-totalOTV_wide <- spread(totalcover_longOTV2, SPECIES, TotalOTV)
+##merge with plot data##
 
-##totalOTV_wide is the sp matrix##
-
-##remove plot B61 b/c of no trees##
-
-totalOTV_1<-subset(totalOTV_wide, PLOTYEAR!="B611969")
-totalOTV_final<-subset(totalOTV_1, PLOTYEAR!="B612015")
-
-
-####
-siteandvegdata<-merge(totalOTV_final, env_imp, by="PLOTYEAR")
-
-sitedata<-siteandvegdata %>% select(PLOTYEAR, Plot, Year, ELEV, HLI, TPI_25)
-
-
-####
-
-
-####ORDINATION##
-
-##
-spp.relOTV <-decostand(totalOTV_final[2:13], method = "total")
-
-
-##run Multiple Response Permutations Procedure (MRPP)
-mrpp((spp.relOTV), sitedata$Year, permutations = 999, distance = "bray", weight.type = 1, strata = NULL, parallel = getOption("mc.cores"))
-
-##run ordination
-ordOTV <- metaMDS(spp.relOTV, k=3, autotransform = FALSE)
-
-
-#######get environmental vector for elevation and hli
-##extract just elevation and hli from env matrix
-env_elev_hli<-  sitedata[c(4:5)]
-
-#environmental correaltion with axes 
-env_fitOTV <- envfit(ordOTV, env_elev_hli, permu = 999)
-env_fitOTV
-
-####create plot of species in ordination space  (APPENDIX 8)
-#jpeg("sawyer species ordination.jpg", units="in", width = 5, height = 5, res=350)####plot species with env
-#par(mfrow=c(2,1))
-cols<-c("gray30", "green4")
-plot(ordOTV, type="n", cex.lab=1.5)
-plot(env_fitOTV, p.max=0.01, col= "black")
-
-text(ordOTV, display = "spec", cex=.85, col="black", pch=21)
-#dev.off()
-
+NMDSandplots<-cbind(siteandvegdata, NMDSscores)
 
 ###
-
-#####create ordination plot with vectors and hulls (FIGURE 7)
-#jpeg("sawyer plot ordination.jpg", units="in", width = 6, height = 6, res=350)
+env_fit 
 
 
-plot(ordOTV, type="n", cex.lab=1.5,cex.axis=1.5, xlab="NMDS 1", ylab="NMDS 2")
-box(lwd=2)
-with(sitedata, points(ordOTV, display="sites", col=cols[Year], pch=21, bg=cols[Year]))
+env_fitdf <- as.data.frame(vegan::scores(env_fit, display = "vectors"))
 
-with(sitedata, legend("topleft", legend = levels(Year), bty = "n",
-                     cex=1, col = cols, pch = 21, pt.bg = cols))
+env_fitdf <- cbind(env_fitdf, Var = rownames(env_fitdf))
+
+###hulls for plotting###
+
+hulls <- NMDSandplots %>%  slice(chull(NMDS1, NMDS2))
+
+####
+
+mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
 
-ordiellipse(ord, sitedata$Year, draw="polygon", col = cols, lwd="1",label=FALSE)
-plot(env_fit, p.max=0.05, col= "black", cex=1)
+ordinationplot <- ggplot() +xlim(-1.75, 1.9)+ylim(-1.75, 1.5) +stat_ellipse(geom="polygon",alpha = 0.2, data=NMDSandplots, aes(x = NMDS1, y = NMDS2, fill=Year))+ geom_point(data=NMDSandplots, aes(NMDS1, NMDS2, fill=Year), shape = 21, size=0.75)+mytheme+scale_fill_manual(values=alpha(c("gray30", "green4"), 1)) +geom_segment(data = env_fitdf , aes(x = 0, xend = NMDS1+1, y = 0, yend = NMDS2+1),     arrow = arrow(length = unit(0.25, "cm")), colour = "black") +annotate(geom="text", x=.75, y=1.2, label="HLI",  color="black")+annotate(geom="text", x=1.1, y=1.35, label="ELEV",  color="black")+ theme(legend.position = "right")
 
-#dev.off()
 
-####THIS IS THE NEW FIGURE####
 
 ```
 
 
 
-```{r MANTEL TESTS OTV}
+```{r MANTEL TESTS}
 
-siteandvegdata<-merge(totalOTV_final, env_imp, by="PLOTYEAR")
+head(siteandvegdata)
+
 
 
 ########MANTEL TESTS
@@ -961,6 +817,30 @@ elev_decay.exp_2015
 
 hli_decay.exp_1969
 hli_decay.exp_2015
+
+```
+
+
+
+
+```{r plot decay functions}
+
+###
+
+par(mfrow=c(1,2))
+####
+plot.decay(elev_decay.exp_2015, col="white", ylim=c(0,.7), main="Elevation")
+plot.decay(elev_decay.exp_1969, col="gray30", remove.dots=TRUE, add=TRUE, lwd=2, cex=0.75)
+plot.decay(elev_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE,  lwd=2, cex=0.75)
+legend(800, 0.7, legend=c("1969", "2015"),lty=1:1,
+       col=c("gray30","green4"), lwd=2, box.lty=0)
+
+##HLI PLOT
+plot.decay(hli_decay.exp_2015, col="white", ylim=c(0,.7), main="Heat Load Index")
+plot.decay(hli_decay.exp_1969, col="grey30", remove.dots=TRUE, add=TRUE, lwd=2)
+plot.decay(hli_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE, lwd=2)
+legend(0.5, 0.7, legend=c("1969", "2015"),lty=1:1,
+       col=c("gray30","green4"), lwd=2, box.lty=0)
 
 ```
 
