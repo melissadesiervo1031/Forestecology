@@ -83,8 +83,11 @@ all_datCover<-merge(tree.wideCover, env_imp, by="PLOTYEAR")
 all_datOTV<-merge(tree.wideOTV, env_imp, by="PLOTYEAR")
 
 
-##read in ABCO results from ERIK###
-#ABCOcan<-read.csv("C:/Users/Mitzi/Desktop/Academic Collaborations/Sugar Creek Aug 2020/ABCO_CAN.csv", header=TRUE)
+ABCOcan <- read.csv(here("SAWYER/rawdata/ABCO_CAN.csv"), header=T)
+
+
+##read in ABCO variability band data from PcORD ###
+ABCOcan<-read.csv("C:/Users/Mitzi/Desktop/Academic Collaborations/Sugar Creek Aug 2020/ABCO_CAN.csv", header=TRUE)
 
 
 ```
