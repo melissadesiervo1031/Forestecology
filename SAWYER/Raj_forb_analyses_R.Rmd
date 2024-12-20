@@ -1,0 +1,316 @@
+---
+title: "Cover_elevation_stats_fig"
+author: "Melissa DeSiervo" mhdesiervo@gmail.com, mdesierv@uwyo.edu
+date: "4/7/2021"
+output: html_document
+---
+
+library(vegan)
+library(indicspecies)
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+library(gplots)
+library(rcompanion)
+library(betapart)
+library(weights)
+library(stringr)
+library(viridis)
+library(SciViews)
+library(here)
+
+
+
+```{r import site and tree data, include=FALSE}
+
+###import files tree data and site data##
+
+
+###reed in long tree data###
+forb_long <- read.csv(here("SAWYER/rawdata/196920152024compiled_12_2024.csv"), header=T)
+
+### remove plots that were not resampled###
+
+forb_long1<-subset(forb_long, Remove=="No")
+
+
+##create new columns with PLOT YEAR ###
+
+forb_long2<-forb_long1 %>% mutate(PLOTYEAR= paste0(Plot, Year))
+
+###create new column with OTV transformation###
+
+forb_long3<-forb_long2 %>% mutate(OTV = 1.415*log(Cover) + 2)
+
+###another column with transformed back to % from OTV##
+
+
+forb_long4<-forb_long3 %>% mutate(logcover = (OTV-2)/1.415) %>% mutate(coverOTV=exp(logcover))
+
+
+####Site X Species matrix with Cover###
+
+forb_long4<-forb_long3 %>% select(PLOTYEAR, Species, Cover)
+
+forb.wideCover <- reshape(forb_long4, idvar = "PLOTYEAR", timevar = "Species", direction = "wide")
+
+names(forb.wideCover) <- gsub("Cover.", "", names(forb.wideCover))
+
+# Fill in NA's with zeros in wide data set
+forb.wideCover[is.na(forb.wideCover)] <- 0
+
+
+####Site X Species matrix with OTV###
+
+forb_long5<-forb_long3 %>% select(PLOTYEAR, Species, OTV)
+
+forb.wideOTV <- reshape(forb_long5, idvar = "PLOTYEAR", timevar = "Species", direction = "wide")
+
+names(forb.wideOTV) <- gsub("Cover.", "", names(forb.wideCover))
+
+forb.wideOTV[is.na(forb.wideOTV)] <- 0
+
+
+##read in table with env data
+env_imp <- read.csv(here("SAWYER/rawdata/sitedata_updated.csv"), header=T)
+
+
+#make year a factor
+env_imp$Year<-as.factor(env_imp$Year)
+
+
+###merge env and sp data cover
+all_datCover<-merge(forb.wideCover, env_imp, by="PLOTYEAR")
+
+all_datOTV<-merge(forb.wideOTV, env_imp, by="PLOTYEAR")
+
+
+
+```
+
+
+
+
+```{r sum up layers for total cover and total OTV, echo=FALSE}
+
+########sum strata by species
+
+
+
+totalcover_2<-separate(data = forb.wideCover, col = PLOTYEAR, into = c("PLOT", "YEAR"), sep=3, remove=FALSE)
+
+totalcover_long <- gather(totalcover_2, SPECIES, TotalCover, 'Pyrola picta':'Chimaphila menziesii', factor_key=TRUE)
+
+
+avgcovertotal<-totalcover_long %>% group_by(YEAR, SPECIES) %>% dplyr::summarise(meancover=mean(TotalCover, na.rm=TRUE),sdcover=sd(TotalCover, na.rm=TRUE),secover=sd(TotalCover, na.rm=TRUE)/sqrt(n()))
+
+
+##converting total cover into OTV###
+
+
+totalcover_longOTV<-totalcover_long %>% mutate(TotalOTV = 1.415*log(TotalCover) + 2)
+
+totalcover_longOTV$TotalOTV[!is.finite(totalcover_longOTV$TotalOTV)] <- 0  ##make infint values 0##
+
+
+
+
+
+```
+
+
+```{r weighted mean elevations total cover and OTV}
+
+###merge env and sp data cover
+totalcover_long3<-merge(totalcover_long, env_imp, by="PLOTYEAR")
+
+
+totalcover_1969<-subset(totalcover_long3, YEAR==1969)
+totalcover_2015<-subset(totalcover_long3, YEAR==2015)
+totalcover_2024<-subset(totalcover_long3, YEAR==2024)
+
+# split the dataframe by species##
+
+total_dist_dat_split1969Cover<-split.data.frame(x = totalcover_1969,f = totalcover_1969$SPECIES)
+total_dist_dat_split2015Cover<-split.data.frame(x = totalcover_2015,f =totalcover_2015$SPECIES)
+total_dist_dat_split2024Cover<-split.data.frame(x = totalcover_2024,f =totalcover_2024$SPECIES)
+
+
+
+### weighted elevation averages###
+weightedmean1969COVER<-stack(lapply(X = total_dist_dat_split1969Cover,function(t){
+  means1969<-weighted.mean(t$ELEV, t$TotalCover)
+  return(means1969)
+}
+))
+ 
+weightedmean2015COVER<-stack(lapply(X = total_dist_dat_split2015Cover,function(t){
+  means2015<-weighted.mean(t$ELEV, t$TotalCover)
+  return(means2015)
+}
+))
+
+
+weightedmean2024COVER<-stack(lapply(X = total_dist_dat_split2024Cover,function(t){
+  means2024<-weighted.mean(t$ELEV, t$TotalCover)
+  return(means2024)
+}
+))
+
+
+#####OTV########
+
+totalcover_longOTV3<-merge(totalcover_longOTV, env_imp, by="PLOTYEAR")
+
+
+totalcoverOTV_1969<-subset(totalcover_longOTV3, YEAR==1969)
+totalcoverOTV_2015<-subset(totalcover_longOTV3, YEAR==2015)
+totalcoverOTV_2024<-subset(totalcover_longOTV3, YEAR==2024)
+
+
+# split the dataframe by species##
+
+total_dist_dat_split1969OTV<-split.data.frame(x = totalcoverOTV_1969,f = totalcover_1969$SPECIES)
+total_dist_dat_split2015OTV<-split.data.frame(x = totalcoverOTV_2015,f =totalcover_2015$SPECIES)
+total_dist_dat_split2024OTV<-split.data.frame(x = totalcoverOTV_2024,f =totalcover_2024$SPECIES)
+
+
+
+### weighted elevation averages###
+weightedmean1969OTV<-stack(lapply(X = total_dist_dat_split1969OTV,function(t){
+  means1969<-weighted.mean(t$ELEV, t$TotalOTV)
+  return(means1969)
+}
+))
+ 
+weightedmean2015OTV<-stack(lapply(X = total_dist_dat_split2015OTV,function(t){
+  means2015<-weighted.mean(t$ELEV, t$TotalOTV)
+  return(means2015)
+}
+))
+
+weightedmean2024OTV<-stack(lapply(X = total_dist_dat_split2024OTV,function(t){
+  means2024<-weighted.mean(t$ELEV, t$TotalOTV)
+  return(means2024)
+}
+))
+
+
+
+weightedmeans<-cbind(species=as.character(weightedmean1969OTV$ind), elev1969=round(weightedmean1969OTV$values,2), elev2015=round(weightedmean2015OTV$values),elev2024=round(weightedmean2024OTV$values))
+
+weightedmeansdf<-as.data.frame(weightedmeans)
+
+#weightedmeans2<-weightedmeans %>% mutate(elevdiff=elev2015-elev1969) %>% mutate(elevdiffdecade=elevdiff/(2015-1969)*10)
+
+###these results are first few columns in Table 2####
+
+
+
+
+
+```
+
+
+
+
+```{r plot elevation violin by layer}
+
+##elevation OTV use tree_long3 ###
+
+
+
+elevationlongOTV<-merge(forb_long3, env_imp, by=c("PLOTYEAR", "Plot", "Year"))
+
+
+elevationlongOTV$Year<-as.factor(elevationlongOTV$Year)
+
+mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
+
+
+dodge <- position_dodge(width = 0.8)
+
+Elevbyspecies<-ggplot(aes(x = Year, y = ELEV),data = elevationlongOTV)+   geom_violin(position=dodge, trim=TRUE, alpha=0.7, aes(fill=Year)) + geom_boxplot(width=0.2,lwd=0.3, position=dodge,outlier.color=NA, aes(color=Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +
+  ylab("Elevation (m)") +
+  xlab("")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
+  theme(panel.grid.major.y  = element_line(colour = "grey", size = 0.5))+
+  scale_y_continuous(limits=c(1200, 2500), breaks=seq(1200,2500,300))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())
+  
+
+
+
+```
+
+
+
+
+
+```{r plot canopy cover total}
+
+head(avgcovertotal)
+
+
+avgcovertotaldf<-as.data.frame(avgcovertotal)
+
+
+## add a column for shrub vs. forb###
+
+avgcovertotaldf2<-avgcovertotaldf %>% mutate(Type=ifelse(SPECIES=="Pyrola picta"|SPECIES=="Chimaphila umbellata"|SPECIES=="Chimaphila menziesii", "Forb", "Shrub"))
+
+
+mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
+
+
+covertotal<-ggplot(aes(x = SPECIES, y = meancover,fill = YEAR,),data = avgcovertotaldf2) +
+  geom_bar(stat="identity",position=position_dodge()) +
+  facet_wrap(~Type,scales = "free", ncol=2)+
+  geom_errorbar(aes(ymin=meancover-secover, ymax=meancover+secover), width=.2,position=position_dodge(.9))+
+  mytheme +
+  ylab("Total Cover (%)") +
+  xlab("")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.position="right")+
+  theme(legend.title = element_blank())+
+  theme(legend.key.size = unit(0.5, 'cm'))+
+  theme(axis.text.x=element_text(angle=50, face="italic",hjust = 1))
+
+
+```
+
+
+
+
+
+
+
+```{r trial of NPMR}
+
+
+data(varespec, varechem)
+spe <- varespec ; id  <- varechem
+i   <- sample(1:nrow(spe), size=floor(0.75*nrow(spe))) # sample
+spe <- spe[i, ]          # in-sample species
+idi <- id[i, ]           # in-sample predictors
+ido <- id[-i, ]          # out-of-sample predictors
+nm  <- c('Al', 'K')      # select 1 or 2 gradients of interest
+
+res_npmr <- npmr(spe, idi, ido, nm, nmulti=5)
+summary(res_npmr)
+
+Q <- npmr_sens(obj=res_npmr, pick = 'Vaccmyrt', nm)
+
+```
+
+
+
+
+
+
+
+
