@@ -87,7 +87,7 @@ ABCOcan <- read.csv(here("SAWYER/rawdata/ABCO_CAN.csv"), header=T)
 
 
 ##read in ABCO variability band data from PcORD ###
-ABCOcan<-read.csv("C:/Users/Mitzi/Desktop/Academic Collaborations/Sugar Creek Aug 2020/ABCO_CAN.csv", header=TRUE)
+#ABCOcan<-read.csv(here("SAWYER/rawdata/ABCO_CAN.csv", header=TRUE))
 
 
 ```
