@@ -275,6 +275,26 @@ Elevbyspecies3<-ggplot(aes(x = ELEV, fill=Year),data = elevationlongOTV)+
   theme(strip.text = element_text(size=9.5))+
   theme(legend.title = element_blank())
 
+
+medianHLI<-elevationlongOTV %>% group_by(Year, Species) %>% dplyr::summarise(medianHLI=median(HLI, na.rm=TRUE))
+
+medianHLI2<-subset(medianHLI, Year==1969|Year==2024)
+
+
+
+
+
+HLIbyspecies3<-ggplot(aes(x = HLI, fill=Year),data = elevationlongOTV)+
+    geom_density(data=subset(elevationlongOTV,Year == '1969'),color = "#F8766D", fill = "#F8766D", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2024'),color="#619CFF",  fill = "#619CFF", alpha = 0.5)+
+  geom_vline(data = medianHLI2, aes(xintercept = medianHLI, color = Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Heat load index") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.title = element_blank())
+
 ```
 
 
