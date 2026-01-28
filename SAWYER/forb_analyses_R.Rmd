@@ -19,6 +19,7 @@ library(viridis)
 library(SciViews)
 library(here)
 library(spatstat.geom)
+library(ks)
 
 
 
@@ -216,7 +217,7 @@ weightedmeansdf<-as.data.frame(weightedmeans)
 
 
 
-```{r density functions}
+```{r density functions - practice with one}
 
 ##elevation OTV use tree_long3 ###
 
@@ -237,7 +238,7 @@ PYR_gaussian_1969_unweighted <- density(PYRPIClongOTV1969$ELEV, kernel = "gaussi
 
 PYR_gaussian_1969_weighted <- density(PYRPIClongOTV1969$ELEV, bw= (bw.nrd0(PYRPIClongOTV1969$ELEV)), kernel = "gaussian", weights = weights)  ### uses silverman's rule of them for bw". the weights change the y valuesm but not the min, max etc. 
 
-## need to figure out the weights part...should add up to 1###
+## weights add up to 1###
 
 plot(PYR_gaussian_1969_unweighted, main = "Kernel Density Plot", xlab = "Value", ylab = "Density")
 
@@ -245,22 +246,71 @@ plot(PYR_gaussian_1969_weighted, main = "Kernel Density Plot weighted", xlab = "
 
 
 
+
 ### pulling out the peak###
 
-i <- which.max(PYR_gaussian_1969$y)
+i <- which.max(PYR_gaussian_1969_weighted$y)
 
-peak_x <- PYR_gaussian_1969$x[i] # 
+peak_x <- PYR_gaussian_1969_weighted$x[i] # 
 
 peak_x
 
+### pulling out the 5 % and 95% abundance ###
+
+
+quantile_kde_0.05 <- quantile(PYR_gaussian_1969_weighted, probs=0.05)
+quantile_kde_0.95 <- quantile(PYR_gaussian_1969_weighted, probs=0.95)
+
+
 ### taking the integral for "abundance##
 
-integral(PYR_gaussian_1969_weighted)
+total_area_spatstat <- integral.density(PYR_gaussian_1969_weighted)
+
+
 
 ```
 
 
 
+
+
+
+
+```{r forloop for all the density functions}
+
+head(elevationlongOTV)
+
+## create column for year and species##
+
+elevationlongOTV2 <- elevationlongOTV %>%  unite(col = "Species_Year", Species, Year, sep = "_", remove = FALSE)
+
+###
+species_year_list <- split(elevationlongOTV2, elevationlongOTV2$Species_Year)
+
+
+#### forloop for weights, kernels##
+
+weights <- vector("list", length(species_year_list))
+kernels<-vector("list", length(species_year_list))
+
+for (i in seq_along(species_year_list)) {
+  weights[[i]]<- species_year_list[[i]]$OTV / sum(species_year_list[[i]]$OTV)
+  kernels[[i]]<-density(species_year_list[[i]]$ELEV, bw= (bw.nrd0(species_year_list[[i]]$ELEV)), kernel="gaussian", weights=weights[[i]])
+}
+
+## looping over the kernels, pull out the peak and quartiles##
+
+peak_y<-vector("list", length(kernels))
+peak_x<-vector("list", length(kernels))
+
+for (j in seq_along(kernels)) {
+peak_y[[j]]<-which.max(kernels[[j]]$y)
+peak_x[[j]]<-kernels[[j]][["x"]][j]
+}
+
+
+
+```
 
 
 
@@ -483,97 +533,11 @@ HLIbyspecies3<-ggplot(aes(x = HLI, fill=Year),data = elevationlongOTV)+
 
 
 
-```{r plot cover total}
-
-head(avgcovertotal)
-
-
-avgcovertotaldf<-as.data.frame(avgcovertotal)
-
-
-## add a column for shrub vs. forb###
-
-avgcovertotaldf2<-avgcovertotaldf %>% mutate(Type=ifelse(SPECIES=="Pyrola picta"|SPECIES=="Chimaphila umbellata"|SPECIES=="Chimaphila menziesii", "Forb", "Shrub"))
-
-
-mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
-
-
-
-
-covertotal<-ggplot(aes(x = SPECIES, y = meancover,fill = YEAR,),data = avgcovertotaldf2) +
-  geom_bar(stat="identity",position=position_dodge()) +
-  facet_wrap(~Type,scales = "free", ncol=2)+
-  geom_errorbar(aes(ymin=meancover-secover, ymax=meancover+secover), width=.2,position=position_dodge(.9))+
-  mytheme +
-  ylab("Total Cover (%)") +
-  xlab("")+
-  theme(strip.text = element_text(size=9.5))+
-  theme(legend.position="right")+
-  theme(legend.title = element_blank())+
-  theme(legend.key.size = unit(0.5, 'cm'))+
-  theme(axis.text.x=element_text(angle=50, face="italic",hjust = 1))
-
-
-```
 
 
 
 
 
-```{r plot total occurences}
-
-head(totalcover_long)
-
-##remove 0s###
-
-totalcover_long2<-subset(totalcover_long, TotalCover>0)
-
-totaloccurences<-totalcover_long2 %>% group_by(YEAR, SPECIES) %>% dplyr::summarise(n=n())
-
-
-totaloccurences<-totaloccurences %>% mutate(Type=ifelse(SPECIES=="Pyrola picta"|SPECIES=="Chimaphila umbellata"|SPECIES=="Chimaphila menziesii", "Forb", "Shrub"))
-
-mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
-
-
-totaloccurencesplot<-ggplot(aes(x = SPECIES, y = n,fill = YEAR,),data = totaloccurences) +
-  geom_bar(stat="identity",position=position_dodge()) +
-  facet_wrap(~Type,scales = "free", ncol=2)+
-  mytheme +
-  ylab("Total Occurences") +
-  xlab("")+
-  theme(strip.text = element_text(size=9.5))+
-  theme(legend.position="right")+
-  theme(legend.title = element_blank())+
-  theme(legend.key.size = unit(0.5, 'cm'))+
-  theme(axis.text.x=element_text(angle=50, face="italic",hjust = 1))
-
-
-```
-
-
-
-
-
-
-```{r trial of NPMR}
-
-
-data(varespec, varechem)
-spe <- varespec ; id  <- varechem
-i   <- sample(1:nrow(spe), size=floor(0.75*nrow(spe))) # sample
-spe <- spe[i, ]          # in-sample species
-idi <- id[i, ]           # in-sample predictors
-ido <- id[-i, ]          # out-of-sample predictors
-nm  <- c('Al', 'K')      # select 1 or 2 gradients of interest
-
-res_npmr <- npmr(spe, idi, ido, nm, nmulti=5)
-summary(res_npmr)
-
-Q <- npmr_sens(obj=res_npmr, pick = 'Vaccmyrt', nm)
-
-```
 
 
 
