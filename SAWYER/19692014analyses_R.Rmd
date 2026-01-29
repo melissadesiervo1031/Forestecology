@@ -759,9 +759,14 @@ hulls <- NMDSandplots %>%  slice(chull(NMDS1, NMDS2))
 mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
 
-ordinationplot <- ggplot() +stat_ellipse(geom="polygon",alpha = 0.2, data=NMDSandplots, aes(x = NMDS1, y = NMDS2, fill=Year))+ geom_point(data=NMDSandplots, aes(NMDS1, NMDS2, fill=Year), shape = 21, size=0.75)+mytheme+scale_fill_manual(values=alpha(c("gray30", "green4"), 1))+ geom_segment(data = env_fitdf3 , aes(x = 0, xend = NMDS1 * arrow_factor, y = 0, yend = NMDS2 * arrow_factor),
+ordinationplot <- ggplot() +stat_ellipse(geom="polygon",alpha = 0.2, data=NMDSandplots, aes(x = NMDS1, y = NMDS2, fill=Year))+ geom_point(data=NMDSandplots, aes(NMDS1, NMDS2, color=Year), shape = 16, size=1)+mytheme+scale_fill_manual(values=alpha(c("gray30", "green4"), 1))+scale_color_manual(values=alpha(c("gray30", "green4"), 1))+ geom_segment(data = env_fitdf3 , aes(x = 0, xend = NMDS1 * arrow_factor, y = 0, yend = NMDS2 * arrow_factor),
                arrow = arrow(length = unit(0.25, "cm")), colour = "black")  +annotate(geom="text", x=0.1, y=1.3, label="HLI",  color="black")+annotate(geom="text", x=1.5, y=1.5, label="ELEV",  color="black")+ theme(legend.position = c(0.15, 0.85))+theme(legend.key.size=unit(0.7, 'cm'))+theme(legend.title=element_blank())
 
+
+
+jpeg("C:/Users/Melissa/Dropbox/Sugar Creek Aug 2020/ordinationplot .jpeg",width = 4, height = 4,units = 'in', res = 600)
+ordinationplot 
+dev.off()
 
 
 ```
@@ -843,20 +848,30 @@ hli_decay.exp_2015
 
 ###
 
+
+jpeg("C:/Users/Melissa/Dropbox/Sugar Creek Aug 2020/decayfunctions.jpeg",width = 6, height = 4,units = 'in', res = 600)
+
 par(mfrow=c(1,2))
+
+
 ####
-plot.decay(elev_decay.exp_2015, col="white", ylim=c(0,.7), main="Elevation")
-plot.decay(elev_decay.exp_1969, col="gray30", remove.dots=TRUE, add=TRUE, lwd=2, cex=0.75)
-plot.decay(elev_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE,  lwd=2, cex=0.75)
-legend(800, 0.7, legend=c("1969", "2015"),lty=1:1,
-       col=c("gray30","green4"), lwd=2, box.lty=0)
+plot.decay(elev_decay.exp_2015, col="white", ylim=c(0,.7), oma=c(2, 3, 5, 2))
+mytitle = "Elevation"
+mtext(line=0.5, cex=1, mytitle)
+plot.decay(elev_decay.exp_1969, col="gray30", remove.dots=TRUE, add=TRUE, lwd=2, cex=0.75, cex.axis=2.5)
+plot.decay(elev_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE,  lwd=2, cex=0.75, cex.axis=2.5 )
+legend(625, 0.7, legend=c("1969", "2015"),lty=1:1,
+       col=c("gray30","green4"), lwd=2, box.lty=0, cex = 0.75 )
 
 ##HLI PLOT
-plot.decay(hli_decay.exp_2015, col="white", ylim=c(0,.7), main="Heat Load Index")
-plot.decay(hli_decay.exp_1969, col="grey30", remove.dots=TRUE, add=TRUE, lwd=2)
-plot.decay(hli_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE, lwd=2)
-legend(0.5, 0.7, legend=c("1969", "2015"),lty=1:1,
-       col=c("gray30","green4"), lwd=2, box.lty=0)
+plot.decay(hli_decay.exp_2015, col="white", ylim=c(0,.7), oma=c(2, 3, 5, 2))
+mytitle = "Heat Load Index"
+mtext(line=0.5, cex=1, mytitle)
+plot.decay(hli_decay.exp_1969, col="grey30", remove.dots=TRUE, add=TRUE, lwd=2, cex.axis=2.5)
+plot.decay(hli_decay.exp_2015, col="green4", remove.dots=TRUE, add=TRUE, lwd=2, cex.axis=2.5)
+legend(0.4, 0.7, legend=c("1969", "2015"),lty=1:1,
+       col=c("gray30","green4"), lwd=2, box.lty=0, cex = 0.75)
+dev.off()
 
 ```
 
@@ -893,7 +908,7 @@ legend(0.5, 0.7, legend=c("1969", "2015"),lty=1:1,
 
 ```{r plot ABCO variability bands}
 
-mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=14) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
+mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=7, colour = "black"))+theme(axis.text.y=element_text(size=7, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=14) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
 
 head(ABCOcan)
 
@@ -901,12 +916,12 @@ ABCOcan$Year<-as.factor(as.character(ABCOcan$Year))
 
 
 ABCOcoverelev<-ggplot(aes(x = as.numeric(Elevation2015m), y = Estim,color= Year, fill = Year),data = ABCOcan) +
-  geom_point() +
+  geom_point(size=0.8) +
   geom_ribbon(aes(ymin=LowBand, ymax=HighBand), color=NA, alpha=0.2)+
   mytheme +
   ylab("Canopy Cover (%)") +
   xlab("Elevation (m)")+
-  annotate(geom="text", x=2300, y=55, label="Abies concolor", size=4, fontface = "italic")+
+  annotate(geom="text", x=2200, y=55, label="Abies concolor", size=4, fontface = "italic")+
   scale_color_manual(values=alpha(c("gray30", "green4"), 1))+
   scale_fill_manual(values=alpha(c("gray30", "green4"), 1))+
   theme(legend.position=c(0.76, 0.75))+
@@ -914,7 +929,7 @@ ABCOcoverelev<-ggplot(aes(x = as.numeric(Elevation2015m), y = Estim,color= Year,
   theme(legend.key.size = unit(0.7, 'cm'))
 
 
-jpeg("C:/Users/Mitzi/Desktop/Academic Collaborations/Sugar Creek Aug 2020/ABCOvariability.jpeg",width = 4, height = 3,units = 'in', res = 600)
+jpeg("C:/Users/Melissa/Dropbox/Sugar Creek Aug 2020/ABCOvariability.jpeg",width = 3, height = 3,units = 'in', res = 600)
 ABCOcoverelev
 dev.off()
 
