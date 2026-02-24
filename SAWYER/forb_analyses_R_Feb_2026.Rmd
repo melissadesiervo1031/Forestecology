@@ -1,0 +1,524 @@
+---
+title: "Cover_elevation_stats_fig"
+author: "Melissa DeSiervo" mhdesiervo@gmail.com, mdesierv@uwyo.edu
+date: "4/7/2021"
+output: html_document
+---
+
+library(vegan)
+library(indicspecies)
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+library(gplots)
+library(rcompanion)
+library(betapart)
+library(weights)
+library(stringr)
+library(viridis)
+library(SciViews)
+library(here)
+library(spatstat.geom)
+library(ks)
+
+
+
+```{r import plant data, include=FALSE}
+
+
+###read in long forb data###
+forb_long <- read.csv(here("SAWYER/rawdata/196920152024compiled_12_2024.csv"), header=T)  ## updated in Jan 2025##
+
+### remove plots that were not resampled###
+
+forb_long1<-subset(forb_long, Remove=="No")
+
+
+##create new columns with PLOT YEAR ###
+
+forb_long2<-forb_long1 %>% mutate(PLOTYEAR= paste0(Plot, Year))
+
+###create new column with OTV transformation###
+
+forb_long3<-forb_long2 %>% mutate(OTV = 1.415*log(Cover) + 2)
+
+###another column with transformed back to % from OTV##
+
+
+forb_long4<-forb_long3 %>% mutate(logcover = (OTV-2)/1.415) %>% mutate(coverOTV=exp(logcover))
+
+
+
+####Site X Species matrix with Cover###
+
+forb_long4<-forb_long3 %>% select(PLOTYEAR, Species, Cover)
+
+forb.wideCover <- reshape(forb_long4, idvar = "PLOTYEAR", timevar = "Species", direction = "wide")  ## double check this Yay fixed###
+
+names(forb.wideCover) <- gsub("Cover.", "", names(forb.wideCover))
+
+# Fill in NA's with zeros in wide data set
+forb.wideCover[is.na(forb.wideCover)] <- 0
+
+
+####Site X Species matrix with OTV###
+
+forb_long5<-forb_long3 %>% select(PLOTYEAR, Species, OTV)
+
+forb.wideOTV <- reshape(forb_long5, idvar = "PLOTYEAR", timevar = "Species", direction = "wide")
+
+names(forb.wideOTV) <- gsub("Cover.", "", names(forb.wideCover))
+
+forb.wideOTV[is.na(forb.wideOTV)] <- 0
+
+
+##read in table with env data
+env_imp <- read.csv(here("SAWYER/rawdata/sitedata_updated.csv"), header=T)
+
+
+#make year a factor
+env_imp$Year<-as.factor(env_imp$Year)
+
+
+###merge env and sp data cover
+all_datCover<-merge(forb.wideCover, env_imp, by="PLOTYEAR")
+
+all_datOTV<-merge(forb.wideOTV, env_imp, by="PLOTYEAR")
+
+#
+
+elevationlongOTV<-merge(forb_long3, env_imp, by=c("PLOTYEAR", "Plot", "Year"))
+
+
+```
+
+
+
+```{r density functions - practice with one}
+
+##elevation OTV use tree_long3 ###
+
+
+PYRPIClongOTV1969<-subset(elevationlongOTV, Species=="Pyrola picta" & Year==1969)
+
+PYRPIClongOTV2015<-subset(elevationlongOTV, Species=="Pyrola picta" & Year==2015)
+
+PYRPIClongOTV2024<-subset(elevationlongOTV, Species=="Pyrola picta" & Year==2024)
+
+## weights##
+
+weights <- PYRPIClongOTV1969$OTV / sum(PYRPIClongOTV1969$OTV)
+
+PYR_gaussian_1969_unweighted <- density(PYRPIClongOTV1969$ELEV, kernel = "gaussian")
+
+PYR_gaussian_1969_weighted <- density(PYRPIClongOTV1969$ELEV, bw= (bw.nrd0(PYRPIClongOTV1969$ELEV)), kernel = "gaussian", weights = weights)  ### uses silverman's rule of them for bw". the weights change the y valuesm but not the min, max etc. 
+
+## weights add up to 1###
+
+plot(PYR_gaussian_1969_unweighted, main = "Kernel Density Plot", xlab = "Value", ylab = "Density")
+
+plot(PYR_gaussian_1969_weighted, main = "Kernel Density Plot weighted", xlab = "Value", ylab = "Density")
+
+
+
+
+### pulling out the peak###
+
+i <- which.max(PYR_gaussian_1969_weighted$y)
+
+peak_x <- PYR_gaussian_1969_weighted$x[i] # 
+
+peak_x
+
+### pulling out the 5 % and 95% abundance ###
+
+
+quantile_kde_0.05 <- quantile(PYR_gaussian_1969_weighted, probs=0.05)
+quantile_kde_0.95 <- quantile(PYR_gaussian_1969_weighted, probs=0.95)
+
+
+### taking the integral for "abundance##
+
+total_area_spatstat <- integral.density(PYR_gaussian_1969_weighted)
+
+
+
+```
+
+
+
+```{r forloop for all the density functions}
+
+head(elevationlongOTV)
+
+## create column for year and species##
+
+elevationlongOTV2 <- elevationlongOTV %>%  unite(col = "Species_Year", Species, Year, sep = "_", remove = FALSE)
+
+###
+species_year_list <- split(elevationlongOTV2, elevationlongOTV2$Species_Year)
+
+
+#### forloop for weights, kernels##
+
+weights <- vector("list", length(species_year_list))
+kernels<-vector("list", length(species_year_list))
+
+for (i in seq_along(species_year_list)) {
+  weights[[i]]<- species_year_list[[i]]$OTV / sum(species_year_list[[i]]$OTV)
+  kernels[[i]]<-density(species_year_list[[i]]$ELEV, bw= (bw.nrd0(species_year_list[[i]]$ELEV)), kernel="gaussian", weights=weights[[i]])
+}
+
+
+## looping over the kernels, pull out the peak and quartiles, and cover (by integrating)##
+
+peak_y<-vector("list", length(kernels))
+peak_x<-vector("list", length(kernels))
+quantile_kde_0.05<-vector("list", length(kernels))
+quantile_kde_0.95<-vector("list", length(kernels))
+total_area_spatstat<-vector("list", length(kernels))
+
+
+for (j in seq_along(kernels)) {
+peak_y[[j]]<-which.max(kernels[[j]]$y)
+peak_x[[j]]<-kernels[[j]][["x"]][j]
+quantile_kde_0.05[[j]] <- quantile(kernels[[j]], probs=0.05)
+quantile_kde_0.95[[j]] <- quantile(kernels[[j]], probs=0.95)
+total_area_spatstat[[j]] <- integral.density(kernels[[j]])
+}
+
+### going from list to vector and combining into dataframe###
+
+names<-sort(unique(elevationlongOTV2$Species_Year))
+
+peak_x_2 <- as.numeric(unlist(peak_x, use.names = FALSE))
+quantile_kde_0.05_2 <- as.numeric(unlist(quantile_kde_0.05, use.names = FALSE))
+quantile_kde_0.95_2 <- as.numeric(unlist(quantile_kde_0.95, use.names = FALSE))
+total_area_spatstat_2<- as.numeric(unlist(total_area_spatstat, use.names = FALSE))
+
+
+kdedf<-cbind.data.frame(names, peak_elev=peak_x_2, quantile_kde_0.05=quantile_kde_0.05_2, quantile_kde_0.95=quantile_kde_0.95_2, total_area=total_area_spatstat_2)
+
+kdedf2 <- kdedf %>%  separate_wider_delim(cols = names,delim = "_",names = c("Species","Year")) %>% mutate(range=(quantile_kde_0.95-quantile_kde_0.05)) 
+
+
+### kernels into a dataframe##
+
+kernels2 <- kernels[c(1, 2)]
+
+x_vector <- sapply(kernels, "[[", 1)
+
+kernelslist<-vector("list", length(kernels))
+xlist<-vector("list", length(kernels))
+ylist<-vector("list", length(kernels))
+
+for (i in seq_along(kernels)) {
+xlist[i] <- kernels[[i]]$x
+ylist[i] <- kernels[[i]]$y
+kernelslist[i]<-cbind(xlist[i], ylist[i])
+}
+
+combined_df_named <- list_rbind(kernels, names_to = "source_set")
+ 
+### quick plot all species###
+
+
+quartilesbyspecies<-ggplot(aes(x = Year, y = quantile_kde_0.95),data = kdedf2)+   geom_point() + 
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  ylab("Elevation (m)") +
+  xlab("")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())
+
+rangebyspecies<-ggplot(aes(x = Year, y = range),data = kdedf2)+   geom_point() + 
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  ylab("Elevation range") +
+  xlab("")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())###
+
+######
+
+## 5 percent, peak, 95%, range###
+
+summarybyyear<-kdedf2 %>% group_by(Year, Species) %>% dplyr::summarise(peak_elev_nean=mean(peak_elev, na.rm=TRUE), sd_peak=sd(peak_elev), se_peak=sd/sqrt(count()))
+
+#average by year##
+
+peakyear<-ggplot(aes(x = Year, y = peak_elev, color=Species, group=Species),data = kdedf2)+   geom_point() + geom_line()+
+  ylab("Peak elevation") + mytheme+facet_wrap(~Species)+
+  xlab("")+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())###
+
+rearedgeyear<-ggplot(aes(x = Year, y = quantile_kde_0.05, color=Species, group=Species),data = kdedf2)+   geom_point() + geom_line()+
+  ylab("Elevation") + mytheme+facet_wrap(~Species)+
+  xlab("")+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())###
+
+leadingedgeyear<-ggplot(aes(x = Year, y = quantile_kde_0.95, color=Species, group=Species),data = kdedf2)+   geom_point() + geom_line()+
+  ylab("Elevation") + mytheme+facet_wrap(~Species)+
+  xlab("")+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())###
+
+
+#### change in 2024-1969 ####
+
+##kdedf2##
+
+df1969_2024<-subset(kdedf2, Year=="1969"|Year=="2024")
+
+# Reshape the data
+df_wide <- df1969_2024 %>%  pivot_wider(names_from = Year,
+    values_from = c(peak_elev, quantile_kde_0.05, quantile_kde_0.95, total_area, range)) 
+
+
+df_wide2<-df_wide%>% mutate(diff_peak=peak_elev_2024-peak_elev_1969, diff_quantile_0.05 = quantile_kde_0.05_2024-quantile_kde_0.05_1969, diff_quantile_0.95=quantile_kde_0.95_2024-quantile_kde_0.95_1969)
+
+
+summary_df<-df_wide2 %>% dplyr::summarise(diff_optimum=mean(diff_peak, na.rm=TRUE), sd_diff_peak=sd(diff_peak), se_diff_peak=sd_diff_peak/sqrt(n()),diff_5=mean(diff_quantile_0.05, na.rm=TRUE), sd_diff_05=sd(diff_quantile_0.05), se_diff_05=sd_diff_05/sqrt(n()),diff_95=mean(diff_quantile_0.95, na.rm=TRUE), sd_diff_95=sd(diff_quantile_0.95), se_diff_95=sd_diff_95/sqrt(n())) 
+
+####
+
+```
+
+
+
+
+
+```{r plot elevation}
+
+##elevation OTV use tree_long3 ###
+
+
+
+elevationlongOTV<-merge(forb_long3, env_imp, by=c("PLOTYEAR", "Plot", "Year"))
+
+
+elevationlongOTV$Year<-as.factor(elevationlongOTV$Year)
+
+mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
+
+
+dodge <- position_dodge(width = 0.8)
+
+Elevbyspecies<-ggplot(aes(x = Year, y = ELEV),data = elevationlongOTV)+   geom_violin(position=dodge, trim=TRUE, alpha=0.7, aes(fill=Year)) + geom_boxplot(width=0.2,lwd=0.3, position=dodge,outlier.color=NA, aes(color=Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +
+  ylab("Elevation (m)") +
+  xlab("")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
+  theme(panel.grid.major.y  = element_line(colour = "grey", size = 0.5))+
+  scale_y_continuous(limits=c(1200, 2500), breaks=seq(1200,2500,300))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())
+  
+
+## medians by year##
+
+medianelev<-elevationlongOTV %>% group_by(Year, Species) %>% dplyr::summarise(medianelev=median(ELEV, na.rm=TRUE))
+
+medianelev2<-subset(medianelev, Year==1969|Year==2024)
+
+
+
+Elevbyspecies2<-ggplot(aes(x = ELEV, fill=Year),data = elevationlongOTV)+
+    geom_density(data=subset(elevationlongOTV,Year == '1969'),color = "#F8766D", fill = "#F8766D", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2015'),color= "#00BA38", fill = "#00BA38", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2024'),color="#619CFF",  fill = "#619CFF", alpha = 0.5)+
+  geom_vline(data = medianelev, aes(xintercept = medianelev, color = Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Elevation (m)") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.title = element_blank())
+
+elevationlongOTV$ELEV<-as.numeric(elevationlongOTV$ELEV)
+
+elevationlongOTV19692024<-subset(elevationlongOTV, Year==1969|Year==2024)
+
+
+Elevbyspecies3<-ggplot(aes(x = ELEV, fill=Year),data = elevationlongOTV)+
+    geom_density(data=subset(elevationlongOTV,Year == '1969'),color = "#F8766D", fill = "#F8766D", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2024'),color="#619CFF",  fill = "#619CFF", alpha = 0.5)+
+  geom_vline(data = medianelev2, aes(xintercept = medianelev, color = Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Elevation (m)") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=14))+
+  theme(legend.title = element_blank())+theme(text = element_text(size = 12), axis.text.x = element_text(angle = 90,hjust = 1)) +
+  theme(axis.text = element_text(size = 20))+theme(scale_x_continuous(n.breaks=4))
+
+labels2<-c(1500, 1750, 2000, 2250, 2500)
+
+
+Elevbyspecies4<-ggplot(elevationlongOTV19692024, aes(x=ELEV, color=Year, fill=Year)) +  geom_density(alpha=0.5)+ facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Elevation (m)") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=14))+
+  theme(legend.title = element_blank())+theme(axis.text.x = element_text(angle = 90,hjust = 1, size=12))+theme(axis.text.y = element_text(size=12))+
+  theme(axis.title=element_text(size=14))+ scale_x_continuous(labels = labels2)
+  
+
+
+jpeg("C:/Users/desiervm/Dropbox/Union College stuff/Research/Klamath/Raj thesis/Elevationplot.jpeg", width = 9, height = 6, units="in", res=600) # Open a new pdf file
+Elevbyspecies4
+dev.off() # Close the file
+
+
+
+medianHLI<-elevationlongOTV %>% group_by(Year, Species) %>% dplyr::summarise(medianHLI=median(HLI, na.rm=TRUE))
+
+medianHLI2<-subset(medianHLI, Year==1969|Year==2024)
+
+
+
+
+
+HLIbyspecies3<-ggplot(aes(x = HLI, fill=Year),data = elevationlongOTV)+
+    geom_density(data=subset(elevationlongOTV,Year == '1969'),color = "#F8766D", fill = "#F8766D", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2024'),color="#619CFF",  fill = "#619CFF", alpha = 0.5)+
+  geom_vline(data = medianHLI2, aes(xintercept = medianHLI, color = Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Heat load index") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.title = element_blank())
+
+```
+
+
+
+```{r plot elevation}
+
+##elevation OTV use tree_long3 ###
+
+
+
+elevationlongOTV<-merge(forb_long3, env_imp, by=c("PLOTYEAR", "Plot", "Year"))
+
+
+elevationlongOTV$Year<-as.factor(elevationlongOTV$Year)
+
+mytheme<- theme_bw()+ theme(axis.line.x= element_line(colour = "black", size=0.3))+theme(axis.line.y= element_line(colour = "black", size=0.3))+theme(axis.text.x=element_text(size=8, colour = "black"))+theme(axis.text.y=element_text(size=8, colour = "black"))+theme(axis.title=element_text(size=12))+theme(plot.title=element_text(size=6) +theme(plot.title = element_text(hjust = 0.5)))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+ theme(legend.position = "none")+ theme(strip.background = element_blank()) + theme(strip.text = element_text(face = "italic"))
+
+
+dodge <- position_dodge(width = 0.8)
+
+Elevbyspecies<-ggplot(aes(x = Year, y = ELEV),data = elevationlongOTV)+   geom_violin(position=dodge, trim=TRUE, alpha=0.7, aes(fill=Year)) + geom_boxplot(width=0.2,lwd=0.3, position=dodge,outlier.color=NA, aes(color=Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +
+  ylab("Elevation (m)") +
+  xlab("")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
+  theme(panel.grid.major.y  = element_line(colour = "grey", size = 0.5))+
+  scale_y_continuous(limits=c(1200, 2500), breaks=seq(1200,2500,300))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())
+  
+
+## medians by year##
+
+medianelev<-elevationlongOTV %>% group_by(Year, Species) %>% dplyr::summarise(medianelev=median(ELEV, na.rm=TRUE))
+
+medianelev2<-subset(medianelev, Year==1969|Year==2024)
+
+
+
+Elevbyspecies2<-ggplot(aes(x = ELEV, fill=Year),data = elevationlongOTV)+
+    geom_density(data=subset(elevationlongOTV,Year == '1969'),color = "#F8766D", fill = "#F8766D", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2015'),color= "#00BA38", fill = "#00BA38", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2024'),color="#619CFF",  fill = "#619CFF", alpha = 0.5)+
+  geom_vline(data = medianelev, aes(xintercept = medianelev, color = Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Elevation (m)") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.title = element_blank())
+
+elevationlongOTV$ELEV<-as.numeric(elevationlongOTV$ELEV)
+
+elevationlongOTV19692024<-subset(elevationlongOTV, Year==1969|Year==2024)
+
+
+Elevbyspecies3<-ggplot(aes(x = ELEV, fill=Year),data = elevationlongOTV)+
+    geom_density(data=subset(elevationlongOTV,Year == '1969'),color = "#F8766D", fill = "#F8766D", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2024'),color="#619CFF",  fill = "#619CFF", alpha = 0.5)+
+  geom_vline(data = medianelev2, aes(xintercept = medianelev, color = Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Elevation (m)") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=14))+
+  theme(legend.title = element_blank())+theme(text = element_text(size = 12), axis.text.x = element_text(angle = 90,hjust = 1)) +
+  theme(axis.text = element_text(size = 20))+theme(scale_x_continuous(n.breaks=4))
+
+labels2<-c(1500, 1750, 2000, 2250, 2500)
+
+
+Elevbyspecies4<-ggplot(elevationlongOTV19692024, aes(x=ELEV, color=Year, fill=Year)) +  geom_density(alpha=0.5)+ facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Elevation (m)") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=14))+
+  theme(legend.title = element_blank())+theme(axis.text.x = element_text(angle = 90,hjust = 1, size=12))+theme(axis.text.y = element_text(size=12))+
+  theme(axis.title=element_text(size=14))+ scale_x_continuous(labels = labels2)
+  
+
+
+jpeg("C:/Users/desiervm/Dropbox/Union College stuff/Research/Klamath/Raj thesis/Elevationplot.jpeg", width = 9, height = 6, units="in", res=600) # Open a new pdf file
+Elevbyspecies4
+dev.off() # Close the file
+
+
+
+medianHLI<-elevationlongOTV %>% group_by(Year, Species) %>% dplyr::summarise(medianHLI=median(HLI, na.rm=TRUE))
+
+medianHLI2<-subset(medianHLI, Year==1969|Year==2024)
+
+
+
+
+
+HLIbyspecies3<-ggplot(aes(x = HLI, fill=Year),data = elevationlongOTV)+
+    geom_density(data=subset(elevationlongOTV,Year == '1969'),color = "#F8766D", fill = "#F8766D", alpha = 0.5) +
+    geom_density(data=subset(elevationlongOTV,Year == '2024'),color="#619CFF",  fill = "#619CFF", alpha = 0.5)+
+  geom_vline(data = medianHLI2, aes(xintercept = medianHLI, color = Year))+
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  mytheme +theme(legend.position = "right")+
+  xlab("Heat load index") +
+  ylab("Frequency")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.title = element_blank())
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
