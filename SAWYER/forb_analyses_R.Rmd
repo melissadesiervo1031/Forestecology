@@ -23,12 +23,10 @@ library(ks)
 
 
 
-```{r import site and tree data, include=FALSE}
-
-###import files tree data and site data##
+```{r import plant data, include=FALSE}
 
 
-###reed in long forb data###
+###read in long forb data###
 forb_long <- read.csv(here("SAWYER/rawdata/196920152024compiled_12_2024.csv"), header=T)  ## updated in Jan 2025##
 
 ### remove plots that were not resampled###
@@ -87,141 +85,18 @@ all_datCover<-merge(forb.wideCover, env_imp, by="PLOTYEAR")
 
 all_datOTV<-merge(forb.wideOTV, env_imp, by="PLOTYEAR")
 
+#
+
+elevationlongOTV<-merge(forb_long3, env_imp, by=c("PLOTYEAR", "Plot", "Year"))
 
 
 ```
-
-
-
-
-```{r sum up layers for total cover and total OTV, echo=FALSE}
-
-########sum strata by species
-
-
-
-totalcover_2<-separate(data = forb.wideCover, col = PLOTYEAR, into = c("PLOT", "YEAR"), sep=3, remove=FALSE)
-
-totalcover_long <- gather(totalcover_2, SPECIES, TotalCover, 4:9, factor_key=TRUE)
-
-
-avgcovertotal<-totalcover_long %>% group_by(YEAR, SPECIES) %>% dplyr::summarise(meancover=mean(TotalCover, na.rm=TRUE),sdcover=sd(TotalCover, na.rm=TRUE),secover=sd(TotalCover, na.rm=TRUE)/sqrt(n()))
-
-
-##converting total cover into OTV###
-
-
-totalcover_longOTV<-totalcover_long %>% mutate(TotalOTV = 1.415*log(TotalCover) + 2)
-
-totalcover_longOTV$TotalOTV[!is.finite(totalcover_longOTV$TotalOTV)] <- 0  ##make infint values 0##
-
-
-
-
-
-```
-
-
-```{r weighted mean elevations total cover and OTV}
-
-###merge env and sp data cover
-totalcover_long3<-merge(totalcover_long, env_imp, by="PLOTYEAR")
-
-
-totalcover_1969<-subset(totalcover_long3, YEAR==1969)
-totalcover_2015<-subset(totalcover_long3, YEAR==2015)
-totalcover_2024<-subset(totalcover_long3, YEAR==2024)
-
-# split the dataframe by species##
-
-total_dist_dat_split1969Cover<-split.data.frame(x = totalcover_1969,f = totalcover_1969$SPECIES)
-total_dist_dat_split2015Cover<-split.data.frame(x = totalcover_2015,f =totalcover_2015$SPECIES)
-total_dist_dat_split2024Cover<-split.data.frame(x = totalcover_2024,f =totalcover_2024$SPECIES)
-
-
-
-### weighted elevation averages###
-weightedmean1969COVER<-stack(lapply(X = total_dist_dat_split1969Cover,function(t){
-  means1969<-weighted.mean(t$ELEV, t$TotalCover)
-  return(means1969)
-}
-))
- 
-weightedmean2015COVER<-stack(lapply(X = total_dist_dat_split2015Cover,function(t){
-  means2015<-weighted.mean(t$ELEV, t$TotalCover)
-  return(means2015)
-}
-))
-
-
-weightedmean2024COVER<-stack(lapply(X = total_dist_dat_split2024Cover,function(t){
-  means2024<-weighted.mean(t$ELEV, t$TotalCover)
-  return(means2024)
-}
-))
-
-
-#####OTV########
-
-totalcover_longOTV3<-merge(totalcover_longOTV, env_imp, by="PLOTYEAR")
-
-
-totalcoverOTV_1969<-subset(totalcover_longOTV3, YEAR==1969)
-totalcoverOTV_2015<-subset(totalcover_longOTV3, YEAR==2015)
-totalcoverOTV_2024<-subset(totalcover_longOTV3, YEAR==2024)
-
-
-# split the dataframe by species##
-
-total_dist_dat_split1969OTV<-split.data.frame(x = totalcoverOTV_1969,f = totalcover_1969$SPECIES)
-total_dist_dat_split2015OTV<-split.data.frame(x = totalcoverOTV_2015,f =totalcover_2015$SPECIES)
-total_dist_dat_split2024OTV<-split.data.frame(x = totalcoverOTV_2024,f =totalcover_2024$SPECIES)
-
-
-
-### weighted elevation averages###
-weightedmean1969OTV<-stack(lapply(X = total_dist_dat_split1969OTV,function(t){
-  means1969<-weighted.mean(t$ELEV, t$TotalOTV)
-  return(means1969)
-}
-))
- 
-weightedmean2015OTV<-stack(lapply(X = total_dist_dat_split2015OTV,function(t){
-  means2015<-weighted.mean(t$ELEV, t$TotalOTV)
-  return(means2015)
-}
-))
-
-weightedmean2024OTV<-stack(lapply(X = total_dist_dat_split2024OTV,function(t){
-  means2024<-weighted.mean(t$ELEV, t$TotalOTV)
-  return(means2024)
-}
-))
-
-
-
-weightedmeans<-cbind(species=as.character(weightedmean1969OTV$ind), elev1969=round(weightedmean1969OTV$values,2), elev2015=round(weightedmean2015OTV$values),elev2024=round(weightedmean2024OTV$values))
-
-weightedmeansdf<-as.data.frame(weightedmeans)
-
-#weightedmeans2<-weightedmeans %>% mutate(elevdiff=elev2015-elev1969) %>% mutate(elevdiffdecade=elevdiff/(2015-1969)*10)
-
-
-
-
-
-```
-
-
-
 
 
 
 ```{r density functions - practice with one}
 
 ##elevation OTV use tree_long3 ###
-
-elevationlongOTV<-merge(forb_long3, env_imp, by=c("PLOTYEAR", "Plot", "Year"))
 
 
 PYRPIClongOTV1969<-subset(elevationlongOTV, Species=="Pyrola picta" & Year==1969)
@@ -272,10 +147,6 @@ total_area_spatstat <- integral.density(PYR_gaussian_1969_weighted)
 
 
 
-
-
-
-
 ```{r forloop for all the density functions}
 
 head(elevationlongOTV)
@@ -298,17 +169,122 @@ for (i in seq_along(species_year_list)) {
   kernels[[i]]<-density(species_year_list[[i]]$ELEV, bw= (bw.nrd0(species_year_list[[i]]$ELEV)), kernel="gaussian", weights=weights[[i]])
 }
 
-## looping over the kernels, pull out the peak and quartiles##
+
+## looping over the kernels, pull out the peak and quartiles, and cover (by integrating)##
 
 peak_y<-vector("list", length(kernels))
 peak_x<-vector("list", length(kernels))
+quantile_kde_0.05<-vector("list", length(kernels))
+quantile_kde_0.95<-vector("list", length(kernels))
+total_area_spatstat<-vector("list", length(kernels))
+
 
 for (j in seq_along(kernels)) {
 peak_y[[j]]<-which.max(kernels[[j]]$y)
 peak_x[[j]]<-kernels[[j]][["x"]][j]
+quantile_kde_0.05[[j]] <- quantile(kernels[[j]], probs=0.05)
+quantile_kde_0.95[[j]] <- quantile(kernels[[j]], probs=0.95)
+total_area_spatstat[[j]] <- integral.density(kernels[[j]])
 }
 
+### going from list to vector and combining into dataframe###
 
+names<-sort(unique(elevationlongOTV2$Species_Year))
+
+peak_x_2 <- as.numeric(unlist(peak_x, use.names = FALSE))
+quantile_kde_0.05_2 <- as.numeric(unlist(quantile_kde_0.05, use.names = FALSE))
+quantile_kde_0.95_2 <- as.numeric(unlist(quantile_kde_0.95, use.names = FALSE))
+total_area_spatstat_2<- as.numeric(unlist(total_area_spatstat, use.names = FALSE))
+
+
+kdedf<-cbind.data.frame(names, peak_elev=peak_x_2, quantile_kde_0.05=quantile_kde_0.05_2, quantile_kde_0.95=quantile_kde_0.95_2, total_area=total_area_spatstat_2)
+
+kdedf2 <- kdedf %>%  separate_wider_delim(cols = names,delim = "_",names = c("Species","Year")) %>% mutate(range=(quantile_kde_0.95-quantile_kde_0.05)) 
+
+
+### kernels into a dataframe##
+
+kernels2 <- kernels[c(1, 2)]
+
+x_vector <- sapply(kernels, "[[", 1)
+
+kernelslist<-vector("list", length(kernels))
+xlist<-vector("list", length(kernels))
+ylist<-vector("list", length(kernels))
+
+for (i in seq_along(kernels)) {
+xlist[i] <- kernels[[i]]$x
+ylist[i] <- kernels[[i]]$y
+kernelslist[i]<-cbind(xlist[i], ylist[i])
+}
+
+combined_df_named <- list_rbind(kernels, names_to = "source_set")
+ 
+### quick plot all species###
+
+
+quartilesbyspecies<-ggplot(aes(x = Year, y = quantile_kde_0.95),data = kdedf2)+   geom_point() + 
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  ylab("Elevation (m)") +
+  xlab("")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())
+
+rangebyspecies<-ggplot(aes(x = Year, y = range),data = kdedf2)+   geom_point() + 
+  facet_wrap(~Species,nrow = 4, ncol = 3) + 
+  ylab("Elevation range") +
+  xlab("")+
+  theme(strip.text = element_text(size=9.5))+
+  theme(panel.grid.minor = element_line(colour = "grey", size = 0.5))+ 
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())###
+
+######
+
+## 5 percent, peak, 95%, range###
+
+summarybyyear<-kdedf2 %>% group_by(Year, Species) %>% dplyr::summarise(peak_elev_nean=mean(peak_elev, na.rm=TRUE), sd_peak=sd(peak_elev), se_peak=sd/sqrt(count()))
+
+#average by year##
+
+peakyear<-ggplot(aes(x = Year, y = peak_elev, color=Species, group=Species),data = kdedf2)+   geom_point() + geom_line()+
+  ylab("Peak elevation") + mytheme+facet_wrap(~Species)+
+  xlab("")+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())###
+
+rearedgeyear<-ggplot(aes(x = Year, y = quantile_kde_0.05, color=Species, group=Species),data = kdedf2)+   geom_point() + geom_line()+
+  ylab("Elevation") + mytheme+facet_wrap(~Species)+
+  xlab("")+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())###
+
+leadingedgeyear<-ggplot(aes(x = Year, y = quantile_kde_0.95, color=Species, group=Species),data = kdedf2)+   geom_point() + geom_line()+
+  ylab("Elevation") + mytheme+facet_wrap(~Species)+
+  xlab("")+  theme(strip.text = element_text(size=9.5))+
+  theme(legend.position="none")+
+  theme(legend.title = element_blank())###
+
+
+#### change in 2024-1969 ####
+
+##kdedf2##
+
+df1969_2024<-subset(kdedf2, Year=="1969"|Year=="2024")
+
+# Reshape the data
+df_wide <- df1969_2024 %>%  pivot_wider(names_from = Year,
+    values_from = c(peak_elev, quantile_kde_0.05, quantile_kde_0.95, total_area, range)) 
+
+
+df_wide2<-df_wide%>% mutate(diff_peak=peak_elev_2024-peak_elev_1969, diff_quantile_0.05 = quantile_kde_0.05_2024-quantile_kde_0.05_1969, diff_quantile_0.95=quantile_kde_0.95_2024-quantile_kde_0.95_1969)
+
+
+summary_df<-df_wide2 %>% dplyr::summarise(diff_optimum=mean(diff_peak, na.rm=TRUE), sd_diff_peak=sd(diff_peak), se_diff_peak=sd_diff_peak/sqrt(n()),diff_5=mean(diff_quantile_0.05, na.rm=TRUE), sd_diff_05=sd(diff_quantile_0.05), se_diff_05=sd_diff_05/sqrt(n()),diff_95=mean(diff_quantile_0.95, na.rm=TRUE), sd_diff_95=sd(diff_quantile_0.95), se_diff_95=sd_diff_95/sqrt(n())) 
+
+####
 
 ```
 
